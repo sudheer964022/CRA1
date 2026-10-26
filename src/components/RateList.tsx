@@ -63,13 +63,26 @@ export function calculateCraPrices(b2c: number, category: CraCategory) {
 
 type SortField = "name" | "b2c" | "customer" | "cra";
 
-export default function RateList() {
+export interface RateListProps {
+  selectedModel?: CraCategory;
+  onClose?: () => void;
+}
+
+export default function RateList({ selectedModel = "C4000", onClose }: RateListProps) {
   const [catalog, setCatalog] = useState<any>(initialCatalog);
-  const [craCategory, setCraCategory] = useState<CraCategory>("C4000");
+  const [craCategory, setCraCategory] = useState<CraCategory>(selectedModel);
   const [activeTab, setActiveTab] = useState<"profiles" | "tests">("profiles");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Synchronize category when selectedModel changes from Hero section
+  useEffect(() => {
+    if (selectedModel) {
+      setCraCategory(selectedModel);
+      setCurrentPage(1);
+    }
+  }, [selectedModel]);
 
   // Filters for Tests tab
   const [techFilter, setTechFilter] = useState("all");
@@ -308,33 +321,6 @@ export default function RateList() {
             
             {/* Left: Category Selector + Profiles/Tests Toggle */}
             <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-              {/* CRA Category Dropdown */}
-              <div className="relative inline-flex items-center">
-                <select
-                  id="cra-category-select"
-                  value={craCategory}
-                  onChange={(e) => {
-                    const newCat = e.target.value as CraCategory;
-                    setCraCategory(newCat);
-                    if (CRA_CATEGORIES[newCat].craIncentivePctOnRealized === 0 && sortField === "cra") {
-                      setSortField("name");
-                    }
-                    setCurrentPage(1);
-                  }}
-                  aria-label="Select CRA Category"
-                  className="appearance-none pl-3.5 pr-8 py-2 rounded-lg border border-slate-300 bg-white text-xs sm:text-sm font-bold text-[#1c1950] hover:bg-slate-50 focus:outline-none focus:border-[#1c1950] focus:ring-1 focus:ring-[#1c1950]/20 cursor-pointer shadow-xs transition-colors"
-                >
-                  <option value="C4000">C4000</option>
-                  <option value="C2525">C2525</option>
-                  <option value="C0040">C0040</option>
-                </select>
-                <span className="pointer-events-none absolute right-2.5 inset-y-0 flex items-center text-slate-400">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </span>
-              </div>
-
               {/* Profiles vs Tests Segmented Toggle */}
               <div className="inline-flex p-1 rounded-lg bg-slate-100 border border-slate-200 shrink-0">
                 <button
@@ -434,6 +420,19 @@ export default function RateList() {
                 </svg>
                 <span>Excel</span>
               </button>
+
+              {/* Close Rate List Button */}
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 transition-colors shadow-xs cursor-pointer shrink-0"
+                  title="Close Rate List"
+                >
+                  <span className="text-slate-400 font-bold">✕</span>
+                  <span>Close</span>
+                </button>
+              )}
             </div>
           </div>
 

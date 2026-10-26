@@ -35,10 +35,26 @@ export default function Footer() {
             <ul className="space-y-2.5">
               <li>
                 <a
+                  href="#how-it-works"
+                  className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <span>How it works (CRA Models)</span>
+                </a>
+              </li>
+              <li>
+                <a
                   href="#rate-list"
                   className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5"
                 >
                   <span>Rate List &amp; Test Menu</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#register"
+                  className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <span>Register as Partner</span>
                 </a>
               </li>
               <li>
