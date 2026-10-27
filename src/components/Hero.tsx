@@ -7,7 +7,8 @@ export type CraModelKey = "C4000" | "C2525" | "C0040";
 interface ModelCalculation {
   id: CraModelKey;
   label: string;
-  subLabel: string;
+  customerDiscount: string;
+  partnerIncentive: string;
   customerPays: string;
   customerSaves: string;
   partnerEarns: string;
@@ -18,32 +19,35 @@ const MODEL_CALCULATIONS: Record<CraModelKey, ModelCalculation> = {
   C4000: {
     id: "C4000",
     label: "C4000",
-    subLabel: "Most savings",
+    customerDiscount: "40% customer discount",
+    partnerIncentive: "0% partner incentive",
     customerPays: "₹600",
     customerSaves: "₹400",
     partnerEarns: "₹0",
     explanation:
-      "Maximum customer saving. The customer pays ₹600 (saves 40%) and the partner earns 0%.",
+      "40% customer discount and 0% partner incentive. The customer pays ₹600 (saves 40%) and partner earns ₹0.",
   },
   C2525: {
     id: "C2525",
     label: "C2525",
-    subLabel: "Balanced",
+    customerDiscount: "25% customer discount",
+    partnerIncentive: "25% partner incentive",
     customerPays: "₹750",
     customerSaves: "₹250",
     partnerEarns: "₹187.50",
     explanation:
-      "Both sides gain. The customer pays ₹750 and the partner earns 25% of that, which is ₹187.50.",
+      "25% customer discount and 25% partner incentive. The customer pays ₹750 (saves 25%) and the partner earns ₹187.50.",
   },
   C0040: {
     id: "C0040",
     label: "C0040",
-    subLabel: "Most earning",
+    customerDiscount: "0% customer discount",
+    partnerIncentive: "40% partner incentive",
     customerPays: "₹1,000",
     customerSaves: "₹0",
     partnerEarns: "₹400",
     explanation:
-      "The partner incentive is highest. The customer pays the full ₹1,000 and the partner earns 40%, which is ₹400.",
+      "0% customer discount and 40% partner incentive. The customer pays full ₹1,000 and the partner earns 40% (₹400).",
   },
 };
 
@@ -81,25 +85,25 @@ export default function Hero({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
-          
+
           {/* ================= LEFT COLUMN ================= */}
           <div className="lg:col-span-7 space-y-6 sm:space-y-7">
-            {/* Eyebrow Accent: Horizontal bar + REFERRAL PROGRAMME */}
-            <div className="flex items-center gap-3">
-              <span className="w-10 sm:w-11 h-[2px] bg-[#B8893B] rounded-full inline-block" />
-              <span className="text-[11px] sm:text-xs font-bold tracking-[0.18em] text-[#B8893B] uppercase font-sans">
-                REFERRAL PROGRAMME
+            {/* Prominent Eyebrow Pill Badge for CRA (Customer Referral Agency) */}
+            <div className="inline-flex items-center gap-2.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-[#FAF4EB] border border-[#ECDDC7] shadow-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#B8893B] shrink-0" />
+              <span className="text-xs sm:text-[13px] font-extrabold text-[#0F2A43] tracking-wide uppercase font-sans">
+                Customer Referral Agency (CRA) Programme
               </span>
             </div>
 
             {/* Main Headline */}
             <h1 className="font-sans text-[40px] sm:text-[52px] lg:text-[60px] font-extrabold text-[#0F2A43] tracking-tight leading-[1.06]">
-              Refer patients. <em>Earn on every test</em> they book.
+              Refer customers. <span className="text-[#B8893B]">Earn on every test</span> they book.
             </h1>
 
-            {/* Description Paragraph */}
-            <p className="text-[#55677A] text-base sm:text-lg leading-relaxed max-w-xl">
-              Join the AVMLabs Referral Programme. Share your QR code, AVMLabs handles the testing and reports, and the benefit is shared between the customer and the partner based on the CRA category.
+            {/* Description Paragraph with prominent bold Customer Referral Agency definition */}
+            <p className="text-[#4A5D71] text-base sm:text-lg leading-relaxed max-w-xl">
+              Partner with AVMLabs under the <strong className="font-bold text-[#0F2A43]">Customer Referral Agency (CRA)</strong> model. You refer patients and customers; AVMLabs handles all diagnostic testing and clinical reporting. Benefits are shared transparently between the customer discount and your referral earnings.
             </p>
 
             {/* Left Action Buttons */}
@@ -118,7 +122,7 @@ export default function Hero({
               </a>
             </div>
 
-            {/* Three Trust Badges matching avmlabs-cra.html .facts */}
+            {/* Three Trust Badges */}
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-sm font-semibold text-[#55677A] pt-1">
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5">
                 <span className="text-[#B8893B] font-bold">✓</span> No investment
@@ -127,22 +131,31 @@ export default function Hero({
                 <span className="text-[#B8893B] font-bold">✓</span> No monthly target
               </span>
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5">
-                <span className="text-[#B8893B] font-bold">✓</span> Paid monthly
+                <span className="text-[#B8893B] font-bold">✓</span>Withdraw incentive as & when needed
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5">
+                <span className="text-[#B8893B] font-bold">✓</span>Get incentive on referral
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5">
+                <span className="text-[#B8893B] font-bold">✓</span>Choose Categorie according to your convenience (C4000, C2525, C0040)
               </span>
             </div>
           </div>
 
           {/* ================= RIGHT COLUMN: INTERACTIVE DARK CARD ================= */}
-          <div className="lg:col-span-5">
+          <div id="cra-models" className="lg:col-span-5 scroll-mt-24">
             <div className="bg-[#0F2A43] text-white rounded-[24px] sm:rounded-[28px] p-6 sm:p-7 lg:p-8 shadow-[0_24px_48px_-20px_rgba(15,42,67,0.45)] border border-slate-700/50 flex flex-col justify-between">
-              
-              {/* Card Header */}
+
+              {/* Card Header with Customer Referral Agency (CRA) full form */}
               <div className="mb-5 sm:mb-6">
+                <span className="inline-block px-2.5 py-1 rounded-md bg-white/10 text-[#E0B565] text-[11px] font-bold uppercase tracking-wider mb-2">
+                  Customer Referral Agency (CRA)
+                </span>
                 <h3 className="font-sans text-2xl sm:text-[28px] font-bold text-white tracking-tight">
-                  Choose a model
+                  Explore CRA Categories
                 </h3>
                 <p className="text-[#B5C3D1] text-xs sm:text-sm mt-1">
-                  Select one to see an example on a ₹1,000 test.
+                  Select a category to see how benefits are shared on a ₹1,000 test:
                 </p>
               </div>
 
@@ -157,17 +170,15 @@ export default function Hero({
                       type="button"
                       onClick={() => handleSelectModel(key)}
                       aria-pressed={isSelected}
-                      className={`flex flex-col items-start p-2.5 sm:p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                        isSelected
+                      className={`flex flex-col items-start p-2.5 sm:p-3 rounded-xl border text-left cursor-pointer transition-all ${isSelected
                           ? "border-[#E0B565] bg-[rgba(184,137,59,0.3)]"
                           : "border-white/20 bg-transparent hover:bg-white/[0.08]"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-1.5 w-full">
                         <span
-                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                            isSelected ? "border-[#E0B565]" : "border-[#B5C3D1]"
-                          }`}
+                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-[#E0B565]" : "border-[#B5C3D1]"
+                            }`}
                         >
                           {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#E0B565]" />}
                         </span>
@@ -175,9 +186,14 @@ export default function Hero({
                           {item.label}
                         </span>
                       </div>
-                      <span className="text-[10px] sm:text-[11px] text-[#B5C3D1] mt-1.5 pl-5 leading-tight font-medium">
-                        {item.subLabel}
-                      </span>
+                      <div className="mt-1.5 pl-4 sm:pl-5 space-y-0.5 text-left">
+                        <span className="block text-[10px] sm:text-[11px] text-[#E8EEF4] font-medium leading-tight">
+                          {item.customerDiscount}
+                        </span>
+                        <span className="block text-[10px] sm:text-[11px] text-[#E0B565] font-semibold leading-tight">
+                          {item.partnerIncentive}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -222,7 +238,7 @@ export default function Hero({
                 {currentCalc.explanation}
               </div>
 
-              {/* Action Buttons: Access Rate List + How it works ↓ */}
+              {/* Action Buttons: View Rate List + How it works ↓ */}
               <div className="flex items-center gap-2.5 sm:gap-3">
                 <button
                   type="button"
@@ -235,7 +251,7 @@ export default function Hero({
                   }}
                   className="flex-1 inline-flex items-center justify-center px-4 sm:px-5 py-3 rounded-full bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-95 cursor-pointer text-center font-sans"
                 >
-                  Access Rate List
+                  View Rate List
                 </button>
                 <a
                   href="#how-it-works"

@@ -10,32 +10,51 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/96 backdrop-blur-md border-b border-[#E4E8EC]">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-4 sm:gap-8">
-        
-        {/* Logo - Increased size */}
-        <a
-          href="#hero"
-          className="flex items-center shrink-0 transition-opacity hover:opacity-90"
-          aria-label="AVMLabs home"
-        >
-          <Image
-            src="/AVMLabs-Logo-WL.png"
-            alt="AVMLabs"
-            width={360}
-            height={240}
-            className="h-[50px] sm:h-[58px] md:h-[64px] lg:h-[70px] w-auto object-contain"
-            priority
-          />
-        </a>
+
+        {/* Logo & CRA Sub-brand */}
+        <div className="flex items-center gap-3 sm:gap-3.5">
+          <a
+            href="#hero"
+            className="flex items-center shrink-0 transition-opacity hover:opacity-90"
+            aria-label="AVMLabs home"
+          >
+            <Image
+              src="/AVMLabs-Logo-WL.png"
+              alt="AVMLabs"
+              width={360}
+              height={240}
+              className="h-[48px] sm:h-[56px] md:h-[62px] lg:h-[66px] w-auto object-contain"
+              priority
+            />
+          </a>
+        </div>
 
         {/* Navigation Links */}
-        <nav className="hidden md:flex items-center gap-7 lg:gap-8 ml-auto">
+        <nav className="hidden md:flex items-center gap-6 lg:gap-8 ml-auto">
           <a
-            href="#cra-model"
+            href="#cra-models"
             className="text-[15px] font-semibold text-[#55677A] hover:text-[#0F2A43] py-1 border-b-2 border-transparent hover:border-[#B8893B] transition-colors"
           >
-            CRA Model
+            CRA Categories
           </a>
-          
+          <a
+            href="#how-it-works"
+            className="text-[15px] font-semibold text-[#55677A] hover:text-[#0F2A43] py-1 border-b-2 border-transparent hover:border-[#B8893B] transition-colors"
+          >
+            How It Works
+          </a>
+          <a
+            href="#register"
+            className="text-[15px] font-semibold text-[#55677A] hover:text-[#0F2A43] py-1 border-b-2 border-transparent hover:border-[#B8893B] transition-colors"
+          >
+            Register
+          </a>
+          <a
+            href="#faqs"
+            className="text-[15px] font-semibold text-[#55677A] hover:text-[#0F2A43] py-1 border-b-2 border-transparent hover:border-[#B8893B] transition-colors"
+          >
+            FAQs
+          </a>
         </nav>
 
         {/* WhatsApp Button */}

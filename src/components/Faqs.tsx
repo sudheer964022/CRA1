@@ -12,23 +12,23 @@ interface FaqItem {
 const faqData: FaqItem[] = [
   {
     id: 1,
-    question: "What is the Referral Programme & CRA Categories?",
+    question: "What does CRA stand for and how does the Referral Programme work?",
     answer:
-      "Under the AVMLabs Referral Programme, partners can refer customers across three distinct CRA categories designed for different partnership models:\n\n• **C4000**: Customer Discount 40% | CRA Incentive 0% | Company Final Realized: 60% of B2C\n• **C2525**: Customer Discount 25% | CRA Incentive 25% (on realized, which is 18.75% of B2C) | Company Final Realized: 56.25% of B2C\n• **C0040**: Customer Discount 0% | CRA Incentive 40% (on realized, which is 40% of B2C) | Company Final Realized: 60% of B2C\n\n**Core Rule**: Customer discount is always calculated on the **B2C (Catalogue) price**, and CRA partner incentive is calculated on the **realized amount** (the amount paid by the customer).",
+      "**CRA** stands for **Customer Referral Agency**.\n\nUnder the AVMLabs Referral Programme, partners refer patients and customers for diagnostic tests and health profiles.\n\n**How the programme works**:\n• **You Refer**: You refer patients and customers using your authorized partner login or referral link.\n• **AVMLabs Handles Operations**: AVMLabs handles booking, home or centre sample collection, accredited laboratory processing, and verified digital reporting.\n• **Shared Commercial Benefit**: The benefit on each test is split between customer discount and your partner incentive according to your chosen CRA model:\n  - **C4000**: Customer Discount **40%** | Partner Incentive **0%** (Maximum patient saving)\n  - **C2525**: Customer Discount **25%** | Partner Incentive **25% on realized** (equal to 18.75% of catalogue price) (Balanced win-win sharing)\n  - **C0040**: Customer Discount **0%** | Partner Incentive **40% on realized** (equal to 40% of catalogue price) (Maximum partner earning)",
     category: "Overview",
   },
   {
     id: 2,
-    question: "What are the three CRA Categories in detail?",
+    question: "What are the three CRA models in detail?",
     answer:
-      "• **Category C4000 (Maximum Customer Discount)**:\n  - Customer Discount: **40%** off B2C price\n  - Partner (CRA) Incentive: **0%**\n  - Company Final Realized: **60% of B2C**\n  - Ideal when partners want to offer maximum savings directly to patients, health camps, or societies.\n\n• **Category C2525 (Balanced Sharing Model)**:\n  - Customer Discount: **25%** off B2C price\n  - Partner (CRA) Incentive: **25% on realized amount** (equals **18.75% of B2C price**)\n  - Company Final Realized: **56.25% of B2C**\n  - The balanced standard model providing both patient savings and healthy partner incentives.\n\n• **Category C0040 (Maximum Partner Incentive)**:\n  - Customer Discount: **0%** (Customer pays full B2C price)\n  - Partner (CRA) Incentive: **40% on realized amount** (equals **40% of B2C price**)\n  - Company Final Realized: **60% of B2C**\n  - Designed for commercial influencers, corporate referrals, and retail outlets.",
+      "• **Model C4000 (Maximum Customer Discount)**:\n  - Customer Discount: **40%** off catalogue price\n  - Partner Incentive: **0%**\n  - Customer saves maximum on every test. Ideal for charitable trusts, health camps, residential societies, and partners prioritizing patient affordability.\n\n• **Model C2525 (Balanced Sharing Model)**:\n  - Customer Discount: **25%** off catalogue price\n  - Partner Incentive: **25% on realized amount** (equals **18.75% of catalogue price**)\n  - The standard win-win model providing both patient savings and attractive monthly partner incentives.\n\n• **Model C0040 (Maximum Partner Incentive)**:\n  - Customer Discount: **0%** (Customer pays full catalogue price)\n  - Partner Incentive: **40% on realized amount** (equals **40% of catalogue price**)\n  - Designed for commercial influencers, corporate referrals, gyms, and pharmacies seeking maximum earnings.",
     category: "CRA Categories",
   },
   {
     id: 3,
-    question: "How are the discounts and partner incentives calculated?",
+    question: "How are customer discounts and partner incentives calculated?",
     answer:
-      "For complete clarity:\n• **Customer discount** is applied to the **B2C (Catalogue) price**.\n• **CRA incentive** is calculated on the **realized amount** (net amount paid by customer after discount).\n\n**Detailed Examples on a ₹1,000 Test:**\n\n1. **Under C4000**:\n   • B2C Price: ₹1,000\n   • Customer pays after 40% discount: **₹600**\n   • Realized amount: ₹600\n   • CRA Incentive (0%): **₹0**\n   • Company final realized: **₹600 (60% of B2C)**\n\n2. **Under C2525**:\n   • B2C Price: ₹1,000\n   • Customer pays after 25% discount: **₹750**\n   • Realized amount: ₹750\n   • CRA Incentive (25% on realized): 25% of ₹750 = **₹187.50 plus GST** (18.75% of B2C)\n   • Company final realized: ₹750 – ₹187.50 = **₹562.50 (56.25% of B2C)**\n\n3. **Under C0040**:\n   • B2C Price: ₹1,000\n   • Customer pays (0% discount): **₹1,000**\n   • Realized amount: ₹1,000\n   • CRA Incentive (40% on realized): 40% of ₹1,000 = **₹400 plus GST** (40% of B2C)\n   • Company final realized: ₹1,000 – ₹400 = **₹600 (60% of B2C)**",
+      "• **Customer discount** is applied directly to the **B2C (Catalogue) price**.\n• **Partner incentive** is calculated on the **realized amount** (net amount paid by the customer).\n\n**Detailed Examples on a ₹1,000 Test**:\n\n1. **Under C4000**:\n   • Catalogue Price: ₹1,000\n   • Customer pays after 40% discount: **₹600** (saves ₹400)\n   • Partner Incentive (0%): **₹0**\n\n2. **Under C2525**:\n   • Catalogue Price: ₹1,000\n   • Customer pays after 25% discount: **₹750** (saves ₹250)\n   • Partner Incentive (25% on realized): 25% of ₹750 = **₹187.50 plus GST**\n\n3. **Under C0040**:\n   • Catalogue Price: ₹1,000\n   • Customer pays full catalogue price: **₹1,000** (saves ₹0)\n   • Partner Incentive (40% on realized): 40% of ₹1,000 = **₹400 plus GST**",
     category: "Incentive",
   },
   {
@@ -220,7 +220,7 @@ function renderFormattedAnswer(text: string) {
 
 export default function Faqs() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [openIds, setOpenIds] = useState<Set<number>>(new Set());
+  const [openIds, setOpenIds] = useState<Set<number>>(new Set([1]));
 
   // Filter FAQs based on search input
   const filteredFaqs = useMemo(() => {
@@ -277,7 +277,7 @@ export default function Faqs() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search FAQs (e.g. incentives, discounts, categories)..."
-              className="w-full pl-11 pr-10 py-3 text-sm sm:text-base rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-[#1c1950] focus:ring-2 focus:ring-[#1c1950]/15 transition-all outline-none shadow-2xs"
+              className="w-full pl-11 pr-10 py-3 text-sm sm:text-base rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-[#0F2A43] focus:ring-2 focus:ring-[#0F2A43]/15 transition-all outline-none shadow-2xs"
             />
             {searchQuery && (
               <button
@@ -304,7 +304,7 @@ export default function Faqs() {
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="text-sm font-medium text-[#1c1950] hover:underline cursor-pointer"
+              className="text-sm font-medium text-[#0F2A43] hover:underline cursor-pointer"
             >
               Clear search filter
             </button>
@@ -318,8 +318,8 @@ export default function Faqs() {
                   key={faq.id}
                   className={`rounded-xl border bg-white transition-all overflow-hidden ${
                     isOpen
-                      ? "border-slate-300 border-l-4 border-l-[#1c1950] shadow-xs"
-                      : "border-slate-200/90 hover:border-slate-300 hover:border-l-4 hover:border-l-[#1c1950]/50"
+                      ? "border-slate-300 border-l-4 border-l-[#0F2A43] shadow-xs"
+                      : "border-slate-200/90 hover:border-slate-300 hover:border-l-4 hover:border-l-[#0F2A43]/50"
                   }`}
                 >
                   <button
@@ -329,16 +329,16 @@ export default function Faqs() {
                     className="w-full p-4.5 sm:p-5 flex items-center justify-between gap-4 text-left cursor-pointer select-none group"
                   >
                     <div className="flex items-center gap-3.5">
-                      <span className="w-6 h-6 rounded bg-[#1c1950] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                      <span className="w-6 h-6 rounded bg-[#0F2A43] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
                         Q
                       </span>
-                      <h3 className="font-semibold text-slate-800 text-base sm:text-lg group-hover:text-[#1c1950] transition-colors leading-snug">
+                      <h3 className="font-semibold text-slate-800 text-base sm:text-lg group-hover:text-[#0F2A43] transition-colors leading-snug">
                         {faq.question}
                       </h3>
                     </div>
 
                     <span
-                      className={`w-6 h-6 flex items-center justify-center shrink-0 text-[#1c1950] transition-transform duration-200 ${
+                      className={`w-6 h-6 flex items-center justify-center shrink-0 text-[#0F2A43] transition-transform duration-200 ${
                         isOpen ? "rotate-180" : ""
                       }`}
                     >

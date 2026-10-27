@@ -38,7 +38,7 @@ export default function Footer() {
                   href="#how-it-works"
                   className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5"
                 >
-                  <span>How it works (CRA Models)</span>
+                  <span>How it works</span>
                 </a>
               </li>
               <li>
@@ -94,7 +94,7 @@ export default function Footer() {
               <li>
                 <span className="block text-xs text-slate-400">Official Inquiries</span>
                 <a
-                  href="mailto:partners@avmlabs.com"
+                  href="mailto:cra@avmlabs.com"
                   className="font-medium text-slate-800 hover:text-slate-950 hover:underline transition-colors inline-flex items-center gap-1.5 mt-0.5"
                 >
                   <svg
@@ -110,7 +110,7 @@ export default function Footer() {
                       d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                     />
                   </svg>
-                  <span>partners@avmlabs.com</span>
+                  <span>cra@avmlabs.com</span>
                 </a>
               </li>
             </ul>
@@ -120,7 +120,6 @@ export default function Footer() {
         {/* Bottom Hairline Row */}
         <div className="border-t border-slate-200/80 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
           <p>© 2026 AVMLabs. All rights reserved.</p>
-          <p>Client Referral Programme</p>
         </div>
       </div>
     </footer>

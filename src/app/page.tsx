@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import Hero, { type CraModelKey } from "@/components/Hero";
-import CraModel from "@/components/CraModel";
 import RateList from "@/components/RateList";
 import HowItWorks from "@/components/HowItWorks";
+
 import Register from "@/components/Register";
 import Faqs from "@/components/Faqs";
 import Footer from "@/components/Footer";
@@ -37,7 +37,7 @@ export default function Home() {
           onSelectModel={setSelectedModel}
           onAccessRateList={handleAccessRateList}
         />
-        <CraModel />
+        
         {showRateList && (
           <RateList
             selectedModel={selectedModel}

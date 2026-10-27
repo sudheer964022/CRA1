@@ -68,10 +68,33 @@ export interface RateListProps {
   onClose?: () => void;
 }
 
+interface AllItemProfile {
+  type: "profile";
+  id: string;
+  name: string;
+  rawName: string;
+  contentsText: string;
+  b2c: number;
+  pkg: any;
+}
+
+interface AllItemTest {
+  type: "test";
+  id: string;
+  code: string;
+  name: string;
+  tech: string;
+  sample: string;
+  b2c: number;
+  test: any;
+}
+
+type AllItem = AllItemProfile | AllItemTest;
+
 export default function RateList({ selectedModel = "C4000", onClose }: RateListProps) {
   const [catalog, setCatalog] = useState<any>(initialCatalog);
   const [craCategory, setCraCategory] = useState<CraCategory>(selectedModel);
-  const [activeTab, setActiveTab] = useState<"profiles" | "tests">("profiles");
+  const [activeTab, setActiveTab] = useState<"all" | "profiles" | "tests">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortAsc, setSortAsc] = useState(true);
@@ -92,7 +115,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
   // Expanded profile accordion rows (collapsed by default)
   const [expandedProfiles, setExpandedProfiles] = useState<Set<string>>(new Set());
 
-  // Pagination for tests
+  // Pagination for All and Tests
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
 
@@ -149,6 +172,88 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
     return list;
   }, [catalog.packages]);
 
+  // Tests (filtered to LPL tests by default, matching Camp app)
+  const lplTests = useMemo(() => {
+    return ((catalog.tests as any[]) || []).filter(
+      (t) => !t.processedAt || t.processedAt === "LPL"
+    );
+  }, [catalog.tests]);
+
+  // Combined All Items (Profiles + Tests)
+  const allItems = useMemo<AllItem[]>(() => {
+    const profileItems: AllItemProfile[] = lplPackages.map((p) => ({
+      type: "profile",
+      id: p.id,
+      name: cleanProfileName(p.name),
+      rawName: String(p.rawName || p.name),
+      contentsText: String(p.contentsText || p.contents || ""),
+      b2c: p.pricing?.b2c ?? p.b2c ?? 0,
+      pkg: p,
+    }));
+
+    const testItems: AllItemTest[] = lplTests.map((t) => ({
+      type: "test",
+      id: t.code,
+      code: t.code,
+      name: t.name || t.description || "",
+      tech: t.tech || t.technology || "",
+      sample: t.sample || "",
+      b2c: t.b2c || 0,
+      test: t,
+    }));
+
+    return [...profileItems, ...testItems];
+  }, [lplPackages, lplTests]);
+
+  // Filtered & Sorted All Items
+  const filteredAll = useMemo(() => {
+    let result = [...allItems];
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((item) => {
+        if (item.type === "profile") {
+          return (
+            item.name.toLowerCase().includes(q) ||
+            item.rawName.toLowerCase().includes(q) ||
+            item.contentsText.toLowerCase().includes(q)
+          );
+        } else {
+          return (
+            item.name.toLowerCase().includes(q) ||
+            item.code.toLowerCase().includes(q) ||
+            item.tech.toLowerCase().includes(q) ||
+            item.sample.toLowerCase().includes(q)
+          );
+        }
+      });
+    }
+
+    result.sort((a, b) => {
+      const prA = calculateCraPrices(a.b2c, craCategory);
+      const prB = calculateCraPrices(b.b2c, craCategory);
+      const nameA = a.name;
+      const nameB = b.name;
+
+      let diff = 0;
+      if (sortField === "customer") diff = prA.customerPrice - prB.customerPrice;
+      else if (sortField === "cra") diff = prA.craIncentive - prB.craIncentive;
+      else if (sortField === "b2c") diff = prA.b2c - prB.b2c;
+      else diff = nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" });
+
+      return sortAsc
+        ? diff || nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: "base" })
+        : -diff || nameB.localeCompare(nameA, undefined, { numeric: true, sensitivity: "base" });
+    });
+
+    return result;
+  }, [allItems, searchQuery, sortField, sortAsc, craCategory]);
+
+  const totalAllPages = Math.ceil(filteredAll.length / pageSize) || 1;
+  const paginatedAll = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredAll.slice(start, start + pageSize);
+  }, [filteredAll, currentPage, pageSize]);
+
   // Filtered & Sorted Profiles
   const filteredProfiles = useMemo(() => {
     let result = [...lplPackages];
@@ -183,13 +288,6 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
 
     return result;
   }, [lplPackages, searchQuery, sortField, sortAsc, craCategory]);
-
-  // Tests (filtered to LPL tests by default, matching Camp app)
-  const lplTests = useMemo(() => {
-    return ((catalog.tests as any[]) || []).filter(
-      (t) => !t.processedAt || t.processedAt === "LPL"
-    );
-  }, [catalog.tests]);
 
   // Filtered & Sorted Tests
   const filteredTests = useMemo(() => {
@@ -257,20 +355,64 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
-      if (activeTab === "profiles") {
+
+      if (activeTab === "all") {
+        const rows = filteredAll.map((item, idx) => {
+          const { customerPrice, craIncentive, companyRealized } = calculateCraPrices(item.b2c, craCategory);
+          if (item.type === "profile") {
+            const pkg = item.pkg;
+            const testCount = getProfileTestCount(pkg, catalogTestsByCode);
+            const groups = getProfileGroups(pkg, catalogTestsByCode);
+            const summaryTests = groups
+              .map((g: any) => (g.parameters?.length ? `${g.label} (${g.parameters.join(", ")})` : g.label))
+              .join("; ");
+
+            return {
+              "S.No": idx + 1,
+              "Item Type": "Profile",
+              "Code / ID": pkg.id,
+              "Name": item.name,
+              "Details": `${testCount} Tests: ${summaryTests || pkg.contentsText || ""}`,
+              "CRA Category": craCategory,
+              "Catalogue B2C Rate (INR)": item.b2c,
+              "Customer Price (INR)": customerPrice,
+              "CRA Incentive (INR)": craIncentive,
+              "Company Realized (INR)": companyRealized,
+            };
+          } else {
+            const t = item.test;
+            return {
+              "S.No": idx + 1,
+              "Item Type": "Test",
+              "Code / ID": t.code,
+              "Name": t.name,
+              "Details": `Tech: ${t.tech || t.technology || "—"} | Sample: ${t.sample || "—"}`,
+              "CRA Category": craCategory,
+              "Catalogue B2C Rate (INR)": item.b2c,
+              "Customer Price (INR)": customerPrice,
+              "CRA Incentive (INR)": craIncentive,
+              "Company Realized (INR)": companyRealized,
+            };
+          }
+        });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, `All_Items_${craCategory}`);
+      } else if (activeTab === "profiles") {
         const rows = filteredProfiles.map((p, idx) => {
           const testCount = getProfileTestCount(p, catalogTestsByCode);
           const b2c = p.pricing?.b2c ?? p.b2c ?? 0;
           const { customerPrice, craIncentive, companyRealized } = calculateCraPrices(b2c, craCategory);
           const groups = getProfileGroups(p, catalogTestsByCode);
-          const summaryTests = groups.map((g: any) => g.parameters?.length ? `${g.label} (${g.parameters.join(", ")})` : g.label).join("; ");
+          const summaryTests = groups
+            .map((g: any) => (g.parameters?.length ? `${g.label} (${g.parameters.join(", ")})` : g.label))
+            .join("; ");
 
           return {
             "S.No": idx + 1,
             "Profile Name": cleanProfileName(p.name),
             "Test Count": testCount,
             "CRA Category": craCategory,
-            "B2C Price (INR)": b2c,
+            "Catalogue B2C Rate (INR)": b2c,
             "Customer Price (INR)": customerPrice,
             "CRA Incentive (INR)": craIncentive,
             "Company Realized (INR)": companyRealized,
@@ -289,7 +431,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
             "Technology": t.tech || t.technology || "—",
             "Sample": t.sample || "—",
             "CRA Category": craCategory,
-            "B2C Price (INR)": t.b2c || 0,
+            "Catalogue Rate (INR)": t.b2c || 0,
             "Customer Price (INR)": customerPrice,
             "CRA Incentive (INR)": craIncentive,
             "Company Realized (INR)": companyRealized,
@@ -299,7 +441,8 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
         XLSX.utils.book_append_sheet(wb, ws, `Tests_${craCategory}`);
       }
 
-      XLSX.writeFile(wb, `AVMLabs_${activeTab === "profiles" ? "Profiles" : "Tests"}_${craCategory}_RateList.xlsx`);
+      const tabTitle = activeTab === "all" ? "All" : activeTab === "profiles" ? "Profiles" : "Tests";
+      XLSX.writeFile(wb, `AVMLabs_${tabTitle}_${craCategory}_RateList.xlsx`);
     } catch (err) {
       console.error("Excel export error:", err);
     }
@@ -307,29 +450,52 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
 
   const currentCategoryMeta = CRA_CATEGORIES[craCategory];
   const hasCraIncentive = currentCategoryMeta.craIncentivePctOnRealized > 0;
-  const profileGridCols = hasCraIncentive
-    ? "sm:grid-cols-[minmax(0,1fr)_140px_140px_140px]"
-    : "sm:grid-cols-[minmax(0,1fr)_160px_160px]";
+  const gridCols = hasCraIncentive
+    ? "sm:grid-cols-[minmax(0,1fr)_170px_145px_145px]"
+    : "sm:grid-cols-[minmax(0,1fr)_180px_160px]";
 
   return (
     <section id="rate-list" className="py-10 sm:py-14 bg-[#f8fafc] border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
         {/* Top Control Bar */}
         <div className="sticky top-[60px] sm:top-[72px] md:top-[80px] z-40 bg-white rounded-xl border border-slate-200 shadow-sm p-3.5 sm:p-4 mb-4 backdrop-blur-md">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-            
-            {/* Left: Category Selector + Profiles/Tests Toggle */}
+            {/* Left: All / Profiles / Tests Toggle */}
             <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-              {/* Profiles vs Tests Segmented Toggle */}
               <div className="inline-flex p-1 rounded-lg bg-slate-100 border border-slate-200 shrink-0">
+                {/* All Tab */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("all");
+                    setCurrentPage(1);
+                  }}
+                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                    activeTab === "all"
+                      ? "bg-[#1c1950] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <span>All</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${
+                      activeTab === "all"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {lplPackages.length + lplTests.length}
+                  </span>
+                </button>
+
+                {/* Profiles Tab */}
                 <button
                   type="button"
                   onClick={() => {
                     setActiveTab("profiles");
                     setCurrentPage(1);
                   }}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                     activeTab === "profiles"
                       ? "bg-[#1c1950] text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -347,13 +513,14 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                   </span>
                 </button>
 
+                {/* Tests Tab */}
                 <button
                   type="button"
                   onClick={() => {
                     setActiveTab("tests");
                     setCurrentPage(1);
                   }}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                     activeTab === "tests"
                       ? "bg-[#1c1950] text-white shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -373,7 +540,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
               </div>
             </div>
 
-            {/* Middle & Right: Search Box & Excel Export in One Row on Mobile */}
+            {/* Middle & Right: Search Box & Excel Export */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div className="relative flex-1 min-w-0">
                 <span className="pointer-events-none absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
@@ -393,7 +560,13 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  placeholder={activeTab === "profiles" ? "Search profiles (e.g. AVM 1, Lipid)..." : "Search tests (e.g. TSH, Glucose)..."}
+                  placeholder={
+                    activeTab === "all"
+                      ? "Search all profiles and tests (e.g. AVM 1, Lipid, TSH)..."
+                      : activeTab === "profiles"
+                      ? "Search profiles (e.g. AVM 1, Lipid)..."
+                      : "Search tests (e.g. TSH, Glucose)..."
+                  }
                   className="w-full pl-9.5 pr-8 py-2 rounded-lg border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#1c1950] focus:ring-1 focus:ring-[#1c1950]/20 transition-all"
                 />
                 {searchQuery && (
@@ -538,7 +711,13 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
         {/* Counter Info */}
         <div className="mb-3 px-1 flex items-center justify-between text-xs sm:text-sm font-medium text-slate-500">
           <div>
-            {activeTab === "profiles" ? (
+            {activeTab === "all" ? (
+              <span>
+                Showing {filteredAll.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+                {Math.min(currentPage * pageSize, filteredAll.length)} of {filteredAll.length} items
+                {searchQuery ? "" : ` (${lplPackages.length} profiles, ${lplTests.length} tests)`}
+              </span>
+            ) : activeTab === "profiles" ? (
               <span>
                 Showing {filteredProfiles.length === 0 ? 0 : 1}–{filteredProfiles.length} of {lplPackages.length} diagnostic profiles
               </span>
@@ -553,7 +732,319 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
 
         {/* Table / Cards Container */}
         <div className="sm:bg-white sm:rounded-xl sm:border sm:border-slate-200 sm:shadow-sm sm:overflow-hidden">
-          {activeTab === "profiles" ? (
+          {activeTab === "all" ? (
+            /* =================== ALL (PROFILES + TESTS) VIEW =================== */
+            filteredAll.length === 0 ? (
+              <div className="py-16 text-center bg-white rounded-xl border border-slate-200 sm:border-0 shadow-xs sm:shadow-none">
+                <p className="text-slate-700 font-medium text-base mb-1">No matching profiles or tests found</p>
+                <p className="text-slate-400 text-sm mb-4">Try searching with another keyword.</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-sm font-semibold text-[#1c1950] hover:underline cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <div>
+                {/* Desktop Table Header */}
+                <div className={`hidden sm:grid ${gridCols} gap-3 items-center px-6 py-3.5 bg-slate-50/80 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500 select-none`}>
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSort("name")}
+                    className={`flex items-center text-left transition-colors cursor-pointer font-bold uppercase tracking-wider ${
+                      sortField === "name" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
+                    }`}
+                  >
+                    <span>Profile / Test Name</span>
+                    <span className="ml-1 text-[11px]">{sortField === "name" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSort("b2c")}
+                    className={`flex items-center justify-end text-right transition-colors cursor-pointer font-bold uppercase tracking-wider ${
+                      sortField === "b2c" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
+                    }`}
+                  >
+                    <span>Catalogue Rate</span>
+                    <span className="ml-1 text-[11px]">{sortField === "b2c" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderSort("customer")}
+                    className={`flex items-center justify-end text-right transition-colors cursor-pointer font-bold uppercase tracking-wider ${
+                      sortField === "customer" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
+                    }`}
+                  >
+                    <span>Customer Price</span>
+                    <span className="ml-1 text-[11px]">{sortField === "customer" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
+                  </button>
+
+                  {hasCraIncentive && (
+                    <button
+                      type="button"
+                      onClick={() => handleHeaderSort("cra")}
+                      className={`flex items-center justify-end text-right transition-colors cursor-pointer font-bold uppercase tracking-wider ${
+                        sortField === "cra" ? "text-emerald-700" : "text-slate-500 hover:text-emerald-700"
+                      }`}
+                    >
+                      <span>CRA Incentive</span>
+                      <span className="ml-1 text-[11px]">{sortField === "cra" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Rows: Mobile Container Cards & Desktop Table Rows */}
+                <div className="space-y-3 sm:space-y-0 sm:divide-y sm:divide-slate-100">
+                  {paginatedAll.map((item) => {
+                    const { customerPrice, craIncentive } = calculateCraPrices(item.b2c, craCategory);
+
+                    if (item.type === "profile") {
+                      const pkg = item.pkg;
+                      const isExpanded = expandedProfiles.has(pkg.id);
+                      const testCount = getProfileTestCount(pkg, catalogTestsByCode);
+                      const groups = getProfileGroups(pkg, catalogTestsByCode);
+
+                      return (
+                        <div
+                          key={`profile-${pkg.id}`}
+                          className="bg-white rounded-xl border border-slate-200/90 shadow-xs sm:rounded-none sm:border-0 sm:shadow-none overflow-hidden transition-all"
+                        >
+                          {/* Mobile View: Dedicated Container Card */}
+                          <div className="sm:hidden p-4">
+                            <button
+                              type="button"
+                              onClick={() => toggleProfile(pkg.id)}
+                              className="w-full text-left font-bold text-[#1c1950] hover:text-blue-700 text-sm leading-snug flex items-center justify-between gap-2 cursor-pointer transition-colors group mb-1.5"
+                              aria-expanded={isExpanded}
+                            >
+                              <span className="group-hover:underline">
+                                {item.name} {testCount > 0 ? `(${testCount})` : ""}
+                              </span>
+                            </button>
+
+                            <div className="mb-3">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                Profile
+                              </span>
+                            </div>
+
+                            {/* Mobile Pricing Container Boxes: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
+                            <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2.5 border-t border-slate-100`}>
+                              <div className="bg-slate-50 border border-slate-200/60 rounded-lg p-2 text-center">
+                                <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue B2C</span>
+                                <span className="font-medium text-slate-700 text-sm">{money(item.b2c)}</span>
+                              </div>
+                              <div className="bg-[#1c1950]/5 border border-[#1c1950]/10 rounded-lg p-2 text-center">
+                                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-tight">Customer Price</span>
+                                <span className="font-extrabold text-[#1c1950] text-sm">{money(customerPrice)}</span>
+                              </div>
+                              {hasCraIncentive && (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
+                                  <span className="block text-[10px] font-bold text-emerald-700 uppercase tracking-tight">CRA Incentive</span>
+                                  <span className="font-bold text-emerald-600 text-sm">{craIncentive > 0 ? money(craIncentive) : "₹0"}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Desktop Table Row View */}
+                          <div
+                            className={`hidden sm:grid ${gridCols} gap-2.5 sm:gap-3 items-center px-4 sm:px-6 py-3.5 sm:py-4 text-sm transition-colors hover:bg-slate-50/70`}
+                          >
+                            {/* Profile Name & Expand Toggle */}
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => toggleProfile(pkg.id)}
+                                className="font-bold text-[#1c1950] hover:text-blue-700 text-sm sm:text-base leading-snug text-left inline-flex items-center gap-2 cursor-pointer transition-colors group"
+                                aria-expanded={isExpanded}
+                              >
+                                <span className="group-hover:underline">
+                                  {item.name} {testCount > 0 ? `(${testCount})` : ""}
+                                </span>
+                              </button>
+                              <div className="mt-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  Profile
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Catalogue B2C Rate */}
+                            <div className="text-right font-medium text-slate-600 text-xs sm:text-sm">
+                              {money(item.b2c)}
+                            </div>
+
+                            {/* Customer Price */}
+                            <div className="text-right font-extrabold text-[#1c1950] text-sm sm:text-base">
+                              {money(customerPrice)}
+                            </div>
+
+                            {/* CRA Incentive */}
+                            {hasCraIncentive && (
+                              <div className="text-right font-bold text-emerald-600 text-xs sm:text-sm">
+                                {craIncentive > 0 ? money(craIncentive) : "₹0"}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Profile Included Tests Accordion */}
+                          {isExpanded && (
+                            <div className="bg-[#FAFBFD] px-4 sm:px-8 py-4 border-t border-b border-slate-200/90 space-y-3.5">
+                              <span className="block text-[10px] font-bold font-mono uppercase tracking-widest text-slate-400">
+                                TESTS INCLUDED
+                              </span>
+                              <div className="space-y-3.5">
+                                {groups.map((group: any, gIdx: number) => {
+                                  const hasParams = group.parameters && group.parameters.length > 0;
+                                  const isRedundantLabel =
+                                    hasParams &&
+                                    (groups.length === 1 ||
+                                      cleanProfileName(group.label).toLowerCase().replace(/\s*\(\d+\)/g, "").trim() ===
+                                        cleanProfileName(pkg.name).toLowerCase().replace(/\s*\(\d+\)/g, "").trim());
+
+                                  return (
+                                    <div key={gIdx} className="border-l-2 border-[#1c1950] pl-3.5 py-0.5">
+                                      {!isRedundantLabel && (
+                                        <span className="font-bold text-xs sm:text-sm text-slate-900 block mb-1">
+                                          {group.label}
+                                        </span>
+                                      )}
+                                      {hasParams ? (
+                                        <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-600">
+                                          {group.parameters.map((param: string, pIdx: number) => (
+                                            <li key={pIdx} className="flex items-start gap-1.5 leading-snug">
+                                              <span className="text-slate-400 select-none">•</span>
+                                              <span>{param}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <span className="text-xs text-slate-600 block">
+                                          {group.label}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    } else {
+                      const t = item.test;
+
+                      return (
+                        <div
+                          key={`test-${t.code}`}
+                          className="bg-white rounded-xl border border-slate-200/90 shadow-xs sm:rounded-none sm:border-0 sm:shadow-none p-4 sm:p-0 overflow-hidden transition-all"
+                        >
+                          {/* Mobile View: Dedicated Container Card */}
+                          <div className="sm:hidden space-y-2.5">
+                            <h4 className="font-semibold text-slate-900 text-sm leading-snug">
+                              {t.name}
+                            </h4>
+
+                            {/* Mobile Pricing Grid: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
+                            <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2 border-t border-slate-100`}>
+                              <div className="bg-slate-50 border border-slate-200/60 rounded-lg p-2 text-center">
+                                <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue B2C</span>
+                                <span className="font-medium text-slate-700 text-sm">{money(item.b2c)}</span>
+                              </div>
+                              <div className="bg-[#1c1950]/5 border border-[#1c1950]/10 rounded-lg p-2 text-center">
+                                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-tight">Customer Price</span>
+                                <span className="font-extrabold text-[#1c1950] text-sm">{money(customerPrice)}</span>
+                              </div>
+                              {hasCraIncentive && (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
+                                  <span className="block text-[10px] font-bold text-emerald-700 uppercase tracking-tight">CRA Incentive</span>
+                                  <span className="font-bold text-emerald-600 text-sm">{craIncentive > 0 ? money(craIncentive) : "₹0"}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Desktop Table Row View */}
+                          <div
+                            className={`hidden sm:grid ${gridCols} gap-2.5 sm:gap-3 items-center px-4 sm:px-6 py-3.5 sm:py-4 text-sm transition-colors hover:bg-slate-50/70`}
+                          >
+                            {/* Test Name */}
+                            <div>
+                              <div className="font-semibold text-slate-900 text-sm sm:text-base leading-snug">
+                                {t.name}
+                              </div>
+                            </div>
+
+                            {/* Catalogue B2C Rate */}
+                            <div className="text-right font-medium text-slate-600 text-xs sm:text-sm">
+                              {money(item.b2c)}
+                            </div>
+
+                            {/* Customer Price */}
+                            <div className="text-right font-extrabold text-[#1c1950] text-sm sm:text-base">
+                              {money(customerPrice)}
+                            </div>
+
+                            {/* CRA Incentive */}
+                            {hasCraIncentive && (
+                              <div className="text-right font-bold text-emerald-600 text-xs sm:text-sm">
+                                {craIncentive > 0 ? money(craIncentive) : "₹0"}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
+
+                {/* Pagination Controls for All tab */}
+                {totalAllPages > 1 && (
+                  <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-200 flex items-center justify-between gap-4">
+                    <button
+                      type="button"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      Previous
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(totalAllPages, 8) }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-7 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                            currentPage === page
+                              ? "bg-[#1c1950] text-white shadow-xs"
+                              : "text-slate-600 hover:bg-slate-200/60"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={currentPage === totalAllPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalAllPages, p + 1))}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          ) : activeTab === "profiles" ? (
             /* =================== PROFILES VIEW =================== */
             filteredProfiles.length === 0 ? (
               <div className="py-16 text-center bg-white rounded-xl border border-slate-200 sm:border-0 shadow-xs sm:shadow-none">
@@ -569,8 +1060,8 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
               </div>
             ) : (
               <div>
-                {/* Desktop Table Header */}
-                <div className={`hidden sm:grid ${profileGridCols} gap-3 items-center px-6 py-3.5 bg-slate-50/80 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500 select-none`}>
+                {/* Desktop Table Header: Profile | Catalogue B2C Rate | Customer Price | CRA Incentive */}
+                <div className={`hidden sm:grid ${gridCols} gap-3 items-center px-6 py-3.5 bg-slate-50/80 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500 select-none`}>
                   <button
                     type="button"
                     onClick={() => handleHeaderSort("name")}
@@ -584,6 +1075,17 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
 
                   <button
                     type="button"
+                    onClick={() => handleHeaderSort("b2c")}
+                    className={`flex items-center justify-end text-right transition-colors cursor-pointer font-bold uppercase tracking-wider ${
+                      sortField === "b2c" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
+                    }`}
+                  >
+                    <span>Catalogue</span>
+                    <span className="ml-1 text-[11px]">{sortField === "b2c" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleHeaderSort("customer")}
                     className={`flex items-center justify-end text-right transition-colors cursor-pointer font-bold uppercase tracking-wider ${
                       sortField === "customer" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
@@ -591,17 +1093,6 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                   >
                     <span>Customer Price</span>
                     <span className="ml-1 text-[11px]">{sortField === "customer" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleHeaderSort("b2c")}
-                    className={`flex items-center justify-end text-right transition-colors cursor-pointer font-bold uppercase tracking-wider ${
-                      sortField === "b2c" ? "text-[#1c1950]" : "text-slate-400 hover:text-[#1c1950]"
-                    }`}
-                  >
-                    <span>Catalogue (B2C)</span>
-                    <span className="ml-1 text-[11px]">{sortField === "b2c" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                   </button>
 
                   {hasCraIncentive && (
@@ -643,20 +1134,17 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             <span className="group-hover:underline">
                               {cleanProfileName(pkg.name)} {testCount > 0 ? `(${testCount})` : ""}
                             </span>
-                            <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-xs text-blue-600 font-bold shrink-0">
-                              {isExpanded ? "▴" : "▾"}
-                            </span>
                           </button>
 
-                          {/* Mobile Pricing Container Boxes */}
+                          {/* Mobile Pricing Container Boxes: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
                           <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2.5 border-t border-slate-100`}>
+                            <div className="bg-slate-50 border border-slate-200/60 rounded-lg p-2 text-center">
+                              <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue B2C</span>
+                              <span className="font-medium text-slate-700 text-sm">{money(b2c)}</span>
+                            </div>
                             <div className="bg-[#1c1950]/5 border border-[#1c1950]/10 rounded-lg p-2 text-center">
                               <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-tight">Customer Price</span>
                               <span className="font-extrabold text-[#1c1950] text-sm">{money(customerPrice)}</span>
-                            </div>
-                            <div className="bg-slate-50 border border-slate-200/60 rounded-lg p-2 text-center">
-                              <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue</span>
-                              <span className="font-medium text-slate-600 text-sm">{money(b2c)}</span>
                             </div>
                             {hasCraIncentive && (
                               <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
@@ -669,7 +1157,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
 
                         {/* Desktop Table Row View */}
                         <div
-                          className={`hidden sm:grid ${profileGridCols} gap-2.5 sm:gap-3 items-center px-4 sm:px-6 py-3.5 sm:py-4 text-sm transition-colors hover:bg-slate-50/70`}
+                          className={`hidden sm:grid ${gridCols} gap-2.5 sm:gap-3 items-center px-4 sm:px-6 py-3.5 sm:py-4 text-sm transition-colors hover:bg-slate-50/70`}
                         >
                           {/* Profile Name & Expand Toggle */}
                           <div>
@@ -682,20 +1170,17 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               <span className="group-hover:underline">
                                 {cleanProfileName(pkg.name)} {testCount > 0 ? `(${testCount})` : ""}
                               </span>
-                              <span className="text-xs text-blue-600 font-bold transition-transform">
-                                {isExpanded ? "▴" : "▾"}
-                              </span>
                             </button>
+                          </div>
+
+                          {/* Catalogue B2C Rate */}
+                          <div className="text-right font-medium text-slate-600 text-xs sm:text-sm">
+                            {money(b2c)}
                           </div>
 
                           {/* Customer Price */}
                           <div className="text-right font-extrabold text-[#1c1950] text-sm sm:text-base">
                             {money(customerPrice)}
-                          </div>
-
-                          {/* Catalogue (B2C) Price */}
-                          <div className="text-right font-medium text-slate-600 text-xs sm:text-sm">
-                            {money(b2c)}
                           </div>
 
                           {/* CRA Incentive */}
@@ -706,7 +1191,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                           )}
                         </div>
 
-                        {/* ACCORDION EXPANSION: EXACT CAMP APP REPLICA */}
+                        {/* Included Tests Accordion */}
                         {isExpanded && (
                           <div className="bg-[#FAFBFD] px-4 sm:px-8 py-4 border-t border-b border-slate-200/90 space-y-3.5">
                             <span className="block text-[10px] font-bold font-mono uppercase tracking-widest text-slate-400">
@@ -800,19 +1285,19 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                           {t.name}
                         </h4>
 
-                        {/* Pricing Grid */}
+                        {/* Mobile Pricing Grid: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
                         <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2 border-t border-slate-100`}>
-                          <div className="bg-[#1c1950]/5 border border-[#1c1950]/10 rounded-lg p-2 text-center">
-                            <span className="block text-[10px] font-bold text-slate-500 uppercase">Customer</span>
-                            <span className="font-extrabold text-[#1c1950] text-sm">{money(customerPrice)}</span>
-                          </div>
                           <div className="bg-slate-50 border border-slate-200/60 rounded-lg p-2 text-center">
-                            <span className="block text-[10px] font-semibold text-slate-500 uppercase">Catalogue</span>
-                            <span className="font-medium text-slate-600 text-sm">{money(b2c)}</span>
+                            <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue B2C</span>
+                            <span className="font-medium text-slate-700 text-sm">{money(b2c)}</span>
+                          </div>
+                          <div className="bg-[#1c1950]/5 border border-[#1c1950]/10 rounded-lg p-2 text-center">
+                            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-tight">Customer Price</span>
+                            <span className="font-extrabold text-[#1c1950] text-sm">{money(customerPrice)}</span>
                           </div>
                           {hasCraIncentive && (
                             <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
-                              <span className="block text-[10px] font-bold text-emerald-700 uppercase">CRA Inc</span>
+                              <span className="block text-[10px] font-bold text-emerald-700 uppercase tracking-tight">CRA Incentive</span>
                               <span className="font-bold text-emerald-600 text-sm">{craIncentive > 0 ? money(craIncentive) : "₹0"}</span>
                             </div>
                           )}
@@ -822,7 +1307,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                   })}
                 </div>
 
-                {/* Desktop View: Tests Table with Balanced Column Widths */}
+                {/* Desktop View: Tests Table with: Code | Test Name | Technology | Sample | Catalogue B2C Rate | Customer Price | CRA Incentive */}
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left border-collapse table-auto">
                     <thead>
@@ -833,7 +1318,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                         <th
                           scope="col"
                           onClick={() => handleHeaderSort("name")}
-                          className={`px-4 sm:px-5 py-3.5 text-left cursor-pointer transition-colors w-[260px] sm:w-[300px] md:w-[340px] max-w-[380px] ${
+                          className={`px-4 sm:px-5 py-3.5 text-left cursor-pointer transition-colors w-[240px] sm:w-[280px] md:w-[320px] max-w-[360px] ${
                             sortField === "name" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
                           }`}
                         >
@@ -842,11 +1327,23 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             <span className="text-[10px]">{sortField === "name" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                           </span>
                         </th>
-                        <th scope="col" className="px-4 sm:px-5 py-3.5 text-left hidden md:table-cell w-36">
+                        <th scope="col" className="px-4 sm:px-5 py-3.5 text-left hidden md:table-cell w-32">
                           Technology
                         </th>
                         <th scope="col" className="px-4 sm:px-5 py-3.5 text-left hidden sm:table-cell w-28">
                           Sample
+                        </th>
+                        <th
+                          scope="col"
+                          onClick={() => handleHeaderSort("b2c")}
+                          className={`px-4 sm:px-5 py-3.5 text-right font-bold w-36 cursor-pointer transition-colors ${
+                            sortField === "b2c" ? "text-[#1c1950]" : "text-slate-500 hover:text-[#1c1950]"
+                          }`}
+                        >
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            Catalogue
+                            <span className="text-[10px]">{sortField === "b2c" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
+                          </span>
                         </th>
                         <th
                           scope="col"
@@ -856,32 +1353,20 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                           }`}
                         >
                           <span className="inline-flex items-center gap-1 justify-end">
-                            Customer
+                            Customer Price
                             <span className="text-[10px]">{sortField === "customer" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
-                          </span>
-                        </th>
-                        <th
-                          scope="col"
-                          onClick={() => handleHeaderSort("b2c")}
-                          className={`px-4 sm:px-5 py-3.5 text-right font-bold w-28 cursor-pointer transition-colors ${
-                            sortField === "b2c" ? "text-[#1c1950]" : "text-slate-400 hover:text-[#1c1950]"
-                          }`}
-                        >
-                          <span className="inline-flex items-center gap-1 justify-end">
-                            B2C
-                            <span className="text-[10px]">{sortField === "b2c" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                           </span>
                         </th>
                         {hasCraIncentive && (
                           <th
                             scope="col"
                             onClick={() => handleHeaderSort("cra")}
-                            className={`px-4 sm:px-5 py-3.5 text-right font-bold w-28 cursor-pointer transition-colors ${
+                            className={`px-4 sm:px-5 py-3.5 text-right font-bold w-32 cursor-pointer transition-colors ${
                               sortField === "cra" ? "text-emerald-700" : "text-slate-500 hover:text-emerald-700"
                             }`}
                           >
                             <span className="inline-flex items-center gap-1 justify-end">
-                              CRA Inc
+                              CRA Incentive
                               <span className="text-[10px]">{sortField === "cra" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                             </span>
                           </th>
@@ -898,7 +1383,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             <td className="px-4 sm:px-5 py-3.5 font-bold text-slate-600 text-xs sm:text-sm">
                               {t.code}
                             </td>
-                            <td className="px-4 sm:px-5 py-3.5 font-semibold text-slate-900 text-sm sm:text-base max-w-[380px]">
+                            <td className="px-4 sm:px-5 py-3.5 font-semibold text-slate-900 text-sm sm:text-base max-w-[360px]">
                               {t.name}
                             </td>
                             <td className="px-4 sm:px-5 py-3.5 hidden md:table-cell text-xs">
@@ -909,11 +1394,11 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             <td className="px-4 sm:px-5 py-3.5 text-slate-600 text-xs hidden sm:table-cell">
                               {t.sample || "—"}
                             </td>
-                            <td className="px-4 sm:px-5 py-3.5 font-extrabold text-[#1c1950] text-sm text-right whitespace-nowrap">
-                              {money(customerPrice)}
-                            </td>
                             <td className="px-4 sm:px-5 py-3.5 font-medium text-slate-600 text-xs sm:text-sm text-right whitespace-nowrap">
                               {money(b2c)}
+                            </td>
+                            <td className="px-4 sm:px-5 py-3.5 font-extrabold text-[#1c1950] text-sm text-right whitespace-nowrap">
+                              {money(customerPrice)}
                             </td>
                             {hasCraIncentive && (
                               <td className="px-4 sm:px-5 py-3.5 font-bold text-emerald-600 text-xs text-right whitespace-nowrap">

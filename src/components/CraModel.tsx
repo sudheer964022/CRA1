@@ -11,7 +11,6 @@ interface CraModelDetail {
     description: string;
     example: string;
     bestFor: string;
-    companyRealized: string;
   };
 }
 
@@ -26,7 +25,6 @@ const MODELS_DATA: CraModelDetail[] = [
         "100% of the commercial benefit is passed directly to the customer as a massive 40% discount off the catalogue price.",
       example: "On a ₹1,000 test, the customer pays ₹600. The partner incentive is ₹0.",
       bestFor: "Charitable trusts, health camps, residential societies, and partners prioritizing maximum patient affordability.",
-      companyRealized: "60% of B2C",
     },
   },
   {
@@ -42,7 +40,6 @@ const MODELS_DATA: CraModelDetail[] = [
         "The standard win-win model. The customer enjoys 25% savings, and the partner earns 25% of the realized revenue (equal to 18.75% of B2C price).",
       example: "On a ₹1,000 test, the customer pays ₹750. The partner earns ₹187.50 plus GST.",
       bestFor: "Clinics, doctors, family physicians, and wellness practitioners looking for both patient delight and healthy monthly earnings.",
-      companyRealized: "56.25% of B2C",
     },
   },
   {
@@ -58,7 +55,6 @@ const MODELS_DATA: CraModelDetail[] = [
         "Highest earning model for referral partners. The customer pays the full catalogue price, and the partner earns 40% of the entire realized amount.",
       example: "On a ₹1,000 test, the customer pays ₹1,000. The partner earns ₹400 plus GST.",
       bestFor: "Pharmacies, medical stores, gyms, nutritionists, corporate referral agents, and commercial health influencers.",
-      companyRealized: "60% of B2C",
     },
   },
 ];
@@ -76,11 +72,17 @@ export default function CraModel() {
         
         {/* Section Heading */}
         <div className="max-w-3xl mb-6 sm:mb-8">
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <span className="w-8 h-[2px] bg-[#B8893B] rounded-full inline-block" />
+            <span className="text-[11px] sm:text-xs font-bold tracking-[0.16em] text-[#B8893B] uppercase font-sans">
+              MODELS OVERVIEW
+            </span>
+          </div>
           <h2 className="font-sans text-3xl sm:text-4xl lg:text-[42px] font-bold text-[#0E294B] tracking-tight leading-tight">
-            What is the CRA model?
+            What is the CRA (Customer Referral Agency) model?
           </h2>
           <p className="mt-2.5 text-slate-600 text-sm sm:text-base leading-relaxed">
-            CRA is the partner category that decides how the benefit on each test is split between your customer, you and AVMLabs. You pick one when you join.
+            CRA stands for <strong className="text-slate-900 font-semibold">Customer Referral Agency</strong>. It is the partner framework that decides how diagnostic benefits are shared between your customer discount and your referral incentive. You choose your preferred model when you join.
           </p>
         </div>
 
@@ -135,9 +137,6 @@ export default function CraModel() {
                       </div>
                       <p>
                         <strong className="text-slate-800">Best for:</strong> {model.expandedInfo.bestFor}
-                      </p>
-                      <p className="text-[11px] text-slate-500 font-medium">
-                        Company Realized: {model.expandedInfo.companyRealized}
                       </p>
                     </div>
                   )}
