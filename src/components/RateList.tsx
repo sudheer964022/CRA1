@@ -148,9 +148,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
     setCart((prev) => {
       const idx = prev.findIndex((i) => i.id === item.id);
       if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
-        return next;
+        return prev;
       }
       return [
         ...prev,
@@ -920,37 +918,36 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                 </span>
                               </button>
 
-                              {/* Mobile + Add Button */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  addToCart({
-                                    id: `profile-${pkg.id}`,
-                                    type: "profile",
-                                    name: cleanProfileName(pkg.name),
-                                    b2c: item.b2c,
-                                    testCount,
-                                  })
-                                }
-                                className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                  getItemCartQty(`profile-${pkg.id}`) > 0
-                                    ? "bg-[#B8893B] text-white"
-                                    : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
-                                }`}
-                              >
-                                {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
-                                  <>
-                                    <span>✓</span>
-                                    <span>{getItemCartQty(`profile-${pkg.id}`)}</span>
-                                    <span>+</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>+</span>
-                                    <span>Add</span>
-                                  </>
-                                )}
-                              </button>
+                              {/* Mobile + / Tick Mark Button */}
+                              {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCartOpen(true)}
+                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#B8893B] text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="In referral cart - click to open cart"
+                                >
+                                  <span>✓</span>
+                                  <span>Added</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    addToCart({
+                                      id: `profile-${pkg.id}`,
+                                      type: "profile",
+                                      name: cleanProfileName(pkg.name),
+                                      b2c: item.b2c,
+                                      testCount,
+                                    })
+                                  }
+                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="Add to referral cart"
+                                >
+                                  <span>+</span>
+                                  <span>Add</span>
+                                </button>
+                              )}
                             </div>
 
                             <div className="mb-3">
@@ -1018,32 +1015,35 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               </div>
                             )}
 
-                            {/* Add + Button */}
+                            {/* Add + / Tick Mark Button */}
                             <div className="flex justify-center">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  addToCart({
-                                    id: `profile-${pkg.id}`,
-                                    type: "profile",
-                                    name: cleanProfileName(pkg.name),
-                                    b2c: item.b2c,
-                                    testCount,
-                                  })
-                                }
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                  getItemCartQty(`profile-${pkg.id}`) > 0
-                                    ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
-                                    : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
-                                }`}
-                                title={
-                                  getItemCartQty(`profile-${pkg.id}`) > 0
-                                    ? `In cart (${getItemCartQty(`profile-${pkg.id}`)}) - click to add another`
-                                    : "Add to referral cart"
-                                }
-                              >
-                                {getItemCartQty(`profile-${pkg.id}`) > 0 ? `+${getItemCartQty(`profile-${pkg.id}`)}` : "+"}
-                              </button>
+                              {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCartOpen(true)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-sm transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="In referral cart - click to open cart"
+                                >
+                                  ✓
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    addToCart({
+                                      id: `profile-${pkg.id}`,
+                                      type: "profile",
+                                      name: cleanProfileName(pkg.name),
+                                      b2c: item.b2c,
+                                      testCount,
+                                    })
+                                  }
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="Add to referral cart"
+                                >
+                                  +
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -1105,37 +1105,36 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               <h4 className="font-semibold text-slate-900 text-sm leading-snug flex-1">
                                 {t.name}
                               </h4>
-                              {/* Mobile + Add Button */}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  addToCart({
-                                    id: `test-${t.code}`,
-                                    type: "test",
-                                    code: t.code,
-                                    name: t.name,
-                                    b2c: item.b2c,
-                                  })
-                                }
-                                className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                  getItemCartQty(`test-${t.code}`) > 0
-                                    ? "bg-[#B8893B] text-white"
-                                    : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
-                                }`}
-                              >
-                                {getItemCartQty(`test-${t.code}`) > 0 ? (
-                                  <>
-                                    <span>✓</span>
-                                    <span>{getItemCartQty(`test-${t.code}`)}</span>
-                                    <span>+</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>+</span>
-                                    <span>Add</span>
-                                  </>
-                                )}
-                              </button>
+                              {/* Mobile + / Tick Mark Button */}
+                              {getItemCartQty(`test-${t.code}`) > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCartOpen(true)}
+                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#B8893B] text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="In referral cart - click to open cart"
+                                >
+                                  <span>✓</span>
+                                  <span>Added</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    addToCart({
+                                      id: `test-${t.code}`,
+                                      type: "test",
+                                      code: t.code,
+                                      name: t.name,
+                                      b2c: item.b2c,
+                                    })
+                                  }
+                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="Add to referral cart"
+                                >
+                                  <span>+</span>
+                                  <span>Add</span>
+                                </button>
+                              )}
                             </div>
 
                             {/* Mobile Pricing Grid: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
@@ -1185,32 +1184,35 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               </div>
                             )}
 
-                            {/* Add + Button */}
+                            {/* Add + / Tick Mark Button */}
                             <div className="flex justify-center">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  addToCart({
-                                    id: `test-${t.code}`,
-                                    type: "test",
-                                    code: t.code,
-                                    name: t.name,
-                                    b2c: item.b2c,
-                                  })
-                                }
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                  getItemCartQty(`test-${t.code}`) > 0
-                                    ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
-                                    : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
-                                }`}
-                                title={
-                                  getItemCartQty(`test-${t.code}`) > 0
-                                    ? `In cart (${getItemCartQty(`test-${t.code}`)}) - click to add another`
-                                    : "Add to referral cart"
-                                }
-                              >
-                                {getItemCartQty(`test-${t.code}`) > 0 ? `+${getItemCartQty(`test-${t.code}`)}` : "+"}
-                              </button>
+                              {getItemCartQty(`test-${t.code}`) > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCartOpen(true)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-sm transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="In referral cart - click to open cart"
+                                >
+                                  ✓
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    addToCart({
+                                      id: `test-${t.code}`,
+                                      type: "test",
+                                      code: t.code,
+                                      name: t.name,
+                                      b2c: item.b2c,
+                                    })
+                                  }
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="Add to referral cart"
+                                >
+                                  +
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1357,37 +1359,36 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               </span>
                             </button>
 
-                            {/* Mobile + Add Button */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                addToCart({
-                                  id: `profile-${pkg.id}`,
-                                  type: "profile",
-                                  name: cleanProfileName(pkg.name),
-                                  b2c,
-                                  testCount,
-                                })
-                              }
-                              className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                getItemCartQty(`profile-${pkg.id}`) > 0
-                                  ? "bg-[#B8893B] text-white"
-                                  : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
-                              }`}
-                            >
-                              {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
-                                <>
-                                  <span>✓</span>
-                                  <span>{getItemCartQty(`profile-${pkg.id}`)}</span>
-                                  <span>+</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span>+</span>
-                                  <span>Add</span>
-                                </>
-                              )}
-                            </button>
+                            {/* Mobile + / Tick Mark Button */}
+                            {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => setIsCartOpen(true)}
+                                className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#B8893B] text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                title="In referral cart - click to open cart"
+                              >
+                                <span>✓</span>
+                                <span>Added</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `profile-${pkg.id}`,
+                                    type: "profile",
+                                    name: cleanProfileName(pkg.name),
+                                    b2c,
+                                    testCount,
+                                  })
+                                }
+                                className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                title="Add to referral cart"
+                              >
+                                <span>+</span>
+                                <span>Add</span>
+                              </button>
+                            )}
                           </div>
 
                           {/* Mobile Pricing Container Boxes: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
@@ -1444,32 +1445,35 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             </div>
                           )}
 
-                          {/* Add + Button */}
+                          {/* Add + / Tick Mark Button */}
                           <div className="flex justify-center">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                addToCart({
-                                  id: `profile-${pkg.id}`,
-                                  type: "profile",
-                                  name: cleanProfileName(pkg.name),
-                                  b2c,
-                                  testCount,
-                                })
-                              }
-                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                getItemCartQty(`profile-${pkg.id}`) > 0
-                                  ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
-                                  : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
-                              }`}
-                              title={
-                                getItemCartQty(`profile-${pkg.id}`) > 0
-                                  ? `In cart (${getItemCartQty(`profile-${pkg.id}`)}) - click to add another`
-                                  : "Add to referral cart"
-                              }
-                            >
-                              {getItemCartQty(`profile-${pkg.id}`) > 0 ? `+${getItemCartQty(`profile-${pkg.id}`)}` : "+"}
-                            </button>
+                            {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => setIsCartOpen(true)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-sm transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                title="In referral cart - click to open cart"
+                              >
+                                ✓
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `profile-${pkg.id}`,
+                                    type: "profile",
+                                    name: cleanProfileName(pkg.name),
+                                    b2c,
+                                    testCount,
+                                  })
+                                }
+                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                title="Add to referral cart"
+                              >
+                                +
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -1567,37 +1571,36 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                           <h4 className="font-semibold text-slate-900 text-sm sm:text-base leading-snug flex-1">
                             {t.name}
                           </h4>
-                          {/* Mobile + Add Button */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              addToCart({
-                                id: `test-${t.code}`,
-                                type: "test",
-                                code: t.code,
-                                name: t.name,
-                                b2c,
-                              })
-                            }
-                            className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                              getItemCartQty(`test-${t.code}`) > 0
-                                ? "bg-[#B8893B] text-white"
-                                : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
-                            }`}
-                          >
-                            {getItemCartQty(`test-${t.code}`) > 0 ? (
-                              <>
-                                <span>✓</span>
-                                <span>{getItemCartQty(`test-${t.code}`)}</span>
-                                <span>+</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>+</span>
-                                <span>Add</span>
-                              </>
-                            )}
-                          </button>
+                          {/* Mobile + / Tick Mark Button */}
+                          {getItemCartQty(`test-${t.code}`) > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setIsCartOpen(true)}
+                              className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#B8893B] text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                              title="In referral cart - click to open cart"
+                            >
+                              <span>✓</span>
+                              <span>Added</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addToCart({
+                                  id: `test-${t.code}`,
+                                  type: "test",
+                                  code: t.code,
+                                  name: t.name,
+                                  b2c,
+                                })
+                              }
+                              className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                              title="Add to referral cart"
+                            >
+                              <span>+</span>
+                              <span>Add</span>
+                            </button>
+                          )}
                         </div>
 
                         {/* Mobile Pricing Grid: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
@@ -1724,30 +1727,33 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               </td>
                             )}
                             <td className="px-3 sm:px-4 py-3.5 text-center whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  addToCart({
-                                    id: `test-${t.code}`,
-                                    type: "test",
-                                    code: t.code,
-                                    name: t.name,
-                                    b2c,
-                                  })
-                                }
-                                className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
-                                  getItemCartQty(`test-${t.code}`) > 0
-                                    ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
-                                    : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
-                                }`}
-                                title={
-                                  getItemCartQty(`test-${t.code}`) > 0
-                                    ? `In cart (${getItemCartQty(`test-${t.code}`)}) - click to add another`
-                                    : "Add to referral cart"
-                                }
-                              >
-                                {getItemCartQty(`test-${t.code}`) > 0 ? `+${getItemCartQty(`test-${t.code}`)}` : "+"}
-                              </button>
+                              {getItemCartQty(`test-${t.code}`) > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCartOpen(true)}
+                                  className="w-8 h-8 rounded-lg inline-flex items-center justify-center bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-sm transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="In referral cart - click to open cart"
+                                >
+                                  ✓
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    addToCart({
+                                      id: `test-${t.code}`,
+                                      type: "test",
+                                      code: t.code,
+                                      name: t.name,
+                                      b2c,
+                                    })
+                                  }
+                                  className="w-8 h-8 rounded-lg inline-flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title="Add to referral cart"
+                                >
+                                  +
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
