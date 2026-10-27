@@ -1,6 +1,10 @@
 import Image from "next/image";
 
-export default function Footer() {
+export interface FooterProps {
+  onAccessRateList?: () => void;
+}
+
+export default function Footer({ onAccessRateList }: FooterProps = {}) {
   const whatsappNumber = "919699690289";
   const whatsappMessage = "Dear Team,\nI need assistance with a customer referral";
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
@@ -44,9 +48,16 @@ export default function Footer() {
               <li>
                 <a
                   href="#rate-list"
-                  className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5"
+                  onClick={(e) => {
+                    if (onAccessRateList) {
+                      e.preventDefault();
+                      onAccessRateList();
+                      window.history.pushState(null, "", "#rate-list");
+                    }
+                  }}
+                  className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Rate List &amp; Test Menu</span>
+                  <span>Rate List</span>
                 </a>
               </li>
               <li>

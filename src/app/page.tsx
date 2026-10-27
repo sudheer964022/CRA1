@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Hero, { type CraModelKey } from "@/components/Hero";
 import RateList from "@/components/RateList";
 import HowItWorks from "@/components/HowItWorks";
-
 import Register from "@/components/Register";
 import Faqs from "@/components/Faqs";
 import Footer from "@/components/Footer";
@@ -16,21 +15,49 @@ export default function Home() {
 
   const handleAccessRateList = () => {
     setShowRateList(true);
-    setTimeout(() => {
+    const scrollTarget = () => {
       const el = document.getElementById("rate-list");
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }, 100);
+    };
+
+    if (document.getElementById("rate-list")) {
+      scrollTarget();
+    } else {
+      setTimeout(scrollTarget, 120);
+    }
   };
 
   const handleCloseRateList = () => {
     setShowRateList(false);
   };
 
+  // Synchronize initial URL hash or external anchor clicks
+  useEffect(() => {
+    const handleHash = () => {
+      if (typeof window !== "undefined" && window.location.hash === "#rate-list") {
+        setShowRateList(true);
+        setTimeout(() => {
+          const el = document.getElementById("rate-list");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 150);
+      }
+    };
+
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans">
-      <Header />
+      <Header
+        onAccessRateList={handleAccessRateList}
+        isRateListOpen={showRateList}
+      />
       <main className="flex-1">
         <Hero
           selectedModel={selectedModel}
@@ -48,7 +75,7 @@ export default function Home() {
         <Register />
         <Faqs />
       </main>
-      <Footer />
+      <Footer onAccessRateList={handleAccessRateList} />
     </div>
   );
 }

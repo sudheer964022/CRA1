@@ -9,6 +9,7 @@ import {
   getProfileGroups,
 } from "@/lib/profileGroups.js";
 import { money } from "@/lib/formatters.js";
+import CartSidebar, { type CartItem, MIN_CART_VALUE } from "@/components/CartSidebar";
 
 export type CraCategory = "C4000" | "C2525" | "C0040";
 
@@ -106,6 +107,94 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
       setCurrentPage(1);
     }
   }, [selectedModel]);
+
+  // Referral Cart State
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Restore cart from localStorage if present
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("avm_cra_cart");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCart(parsed);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  // Sync cart to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("avm_cra_cart", JSON.stringify(cart));
+    } catch (e) {
+      // ignore
+    }
+  }, [cart]);
+
+  const addToCart = (item: {
+    id: string;
+    type: "profile" | "test";
+    code?: string;
+    name: string;
+    b2c: number;
+    details?: string;
+    testCount?: number;
+  }) => {
+    setCart((prev) => {
+      const idx = prev.findIndex((i) => i.id === item.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+        return next;
+      }
+      return [
+        ...prev,
+        {
+          id: item.id,
+          type: item.type,
+          code: item.code,
+          name: item.name,
+          b2c: item.b2c,
+          quantity: 1,
+          details: item.details,
+          testCount: item.testCount,
+        },
+      ];
+    });
+    setIsCartOpen(true);
+  };
+
+  const updateCartQuantity = (id: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          if (item.id === id) {
+            const nextQty = item.quantity + delta;
+            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean) as CartItem[]
+    );
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const getItemCartQty = (id: string) => {
+    const found = cart.find((i) => i.id === id);
+    return found ? found.quantity : 0;
+  };
 
   // Filters for Tests tab
   const [techFilter, setTechFilter] = useState("all");
@@ -451,11 +540,11 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
   const currentCategoryMeta = CRA_CATEGORIES[craCategory];
   const hasCraIncentive = currentCategoryMeta.craIncentivePctOnRealized > 0;
   const gridCols = hasCraIncentive
-    ? "sm:grid-cols-[minmax(0,1fr)_170px_145px_145px]"
-    : "sm:grid-cols-[minmax(0,1fr)_180px_160px]";
+    ? "sm:grid-cols-[minmax(0,1fr)_150px_135px_135px_56px]"
+    : "sm:grid-cols-[minmax(0,1fr)_165px_145px_56px]";
 
   return (
-    <section id="rate-list" className="py-10 sm:py-14 bg-[#f8fafc] border-b border-slate-200">
+    <section id="rate-list" className="py-10 sm:py-14 bg-[#f8fafc] border-b border-slate-200 scroll-mt-20 sm:scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Control Bar */}
         <div className="sticky top-[60px] sm:top-[72px] md:top-[80px] z-40 bg-white rounded-xl border border-slate-200 shadow-sm p-3.5 sm:p-4 mb-4 backdrop-blur-md">
@@ -795,6 +884,10 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                       <span className="ml-1 text-[11px]">{sortField === "cra" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                     </button>
                   )}
+
+                  <div className="text-center font-bold uppercase tracking-wider text-slate-400 text-[11px]">
+                    Add
+                  </div>
                 </div>
 
                 {/* Rows: Mobile Container Cards & Desktop Table Rows */}
@@ -815,16 +908,50 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                         >
                           {/* Mobile View: Dedicated Container Card */}
                           <div className="sm:hidden p-4">
-                            <button
-                              type="button"
-                              onClick={() => toggleProfile(pkg.id)}
-                              className="w-full text-left font-bold text-[#1c1950] hover:text-blue-700 text-sm leading-snug flex items-center justify-between gap-2 cursor-pointer transition-colors group mb-1.5"
-                              aria-expanded={isExpanded}
-                            >
-                              <span className="group-hover:underline">
-                                {item.name} {testCount > 0 ? `(${testCount})` : ""}
-                              </span>
-                            </button>
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <button
+                                type="button"
+                                onClick={() => toggleProfile(pkg.id)}
+                                className="w-full text-left font-bold text-[#1c1950] hover:text-blue-700 text-sm leading-snug flex items-center justify-between gap-2 cursor-pointer transition-colors group"
+                                aria-expanded={isExpanded}
+                              >
+                                <span className="group-hover:underline">
+                                  {item.name} {testCount > 0 ? `(${testCount})` : ""}
+                                </span>
+                              </button>
+
+                              {/* Mobile + Add Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `profile-${pkg.id}`,
+                                    type: "profile",
+                                    name: cleanProfileName(pkg.name),
+                                    b2c: item.b2c,
+                                    testCount,
+                                  })
+                                }
+                                className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                  getItemCartQty(`profile-${pkg.id}`) > 0
+                                    ? "bg-[#B8893B] text-white"
+                                    : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
+                                }`}
+                              >
+                                {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
+                                  <>
+                                    <span>✓</span>
+                                    <span>{getItemCartQty(`profile-${pkg.id}`)}</span>
+                                    <span>+</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>+</span>
+                                    <span>Add</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
 
                             <div className="mb-3">
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -835,7 +962,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             {/* Mobile Pricing Container Boxes: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
                             <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2.5 border-t border-slate-100`}>
                               <div className="bg-slate-50 border border-slate-200/60 rounded-lg p-2 text-center">
-                                <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue B2C</span>
+                                <span className="block text-[10px] font-semibold text-slate-500 uppercase tracking-tight">Catalogue Rate</span>
                                 <span className="font-medium text-slate-700 text-sm">{money(item.b2c)}</span>
                               </div>
                               <div className="bg-[#1c1950]/5 border border-[#1c1950]/10 rounded-lg p-2 text-center">
@@ -890,6 +1017,34 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                 {craIncentive > 0 ? money(craIncentive) : "₹0"}
                               </div>
                             )}
+
+                            {/* Add + Button */}
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `profile-${pkg.id}`,
+                                    type: "profile",
+                                    name: cleanProfileName(pkg.name),
+                                    b2c: item.b2c,
+                                    testCount,
+                                  })
+                                }
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                  getItemCartQty(`profile-${pkg.id}`) > 0
+                                    ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
+                                    : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
+                                }`}
+                                title={
+                                  getItemCartQty(`profile-${pkg.id}`) > 0
+                                    ? `In cart (${getItemCartQty(`profile-${pkg.id}`)}) - click to add another`
+                                    : "Add to referral cart"
+                                }
+                              >
+                                {getItemCartQty(`profile-${pkg.id}`) > 0 ? `+${getItemCartQty(`profile-${pkg.id}`)}` : "+"}
+                              </button>
+                            </div>
                           </div>
 
                           {/* Profile Included Tests Accordion */}
@@ -946,9 +1101,42 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                         >
                           {/* Mobile View: Dedicated Container Card */}
                           <div className="sm:hidden space-y-2.5">
-                            <h4 className="font-semibold text-slate-900 text-sm leading-snug">
-                              {t.name}
-                            </h4>
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="font-semibold text-slate-900 text-sm leading-snug flex-1">
+                                {t.name}
+                              </h4>
+                              {/* Mobile + Add Button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `test-${t.code}`,
+                                    type: "test",
+                                    code: t.code,
+                                    name: t.name,
+                                    b2c: item.b2c,
+                                  })
+                                }
+                                className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                  getItemCartQty(`test-${t.code}`) > 0
+                                    ? "bg-[#B8893B] text-white"
+                                    : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
+                                }`}
+                              >
+                                {getItemCartQty(`test-${t.code}`) > 0 ? (
+                                  <>
+                                    <span>✓</span>
+                                    <span>{getItemCartQty(`test-${t.code}`)}</span>
+                                    <span>+</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>+</span>
+                                    <span>Add</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
 
                             {/* Mobile Pricing Grid: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
                             <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2 border-t border-slate-100`}>
@@ -996,6 +1184,34 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                 {craIncentive > 0 ? money(craIncentive) : "₹0"}
                               </div>
                             )}
+
+                            {/* Add + Button */}
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `test-${t.code}`,
+                                    type: "test",
+                                    code: t.code,
+                                    name: t.name,
+                                    b2c: item.b2c,
+                                  })
+                                }
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                  getItemCartQty(`test-${t.code}`) > 0
+                                    ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
+                                    : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
+                                }`}
+                                title={
+                                  getItemCartQty(`test-${t.code}`) > 0
+                                    ? `In cart (${getItemCartQty(`test-${t.code}`)}) - click to add another`
+                                    : "Add to referral cart"
+                                }
+                              >
+                                {getItemCartQty(`test-${t.code}`) > 0 ? `+${getItemCartQty(`test-${t.code}`)}` : "+"}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1107,6 +1323,10 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                       <span className="ml-1 text-[11px]">{sortField === "cra" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                     </button>
                   )}
+
+                  <div className="text-center font-bold uppercase tracking-wider text-slate-400 text-[11px]">
+                    Add
+                  </div>
                 </div>
 
                 {/* Profiles: Mobile Container Cards & Desktop Table Rows */}
@@ -1125,16 +1345,50 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                       >
                         {/* Mobile View: Dedicated Container Card */}
                         <div className="sm:hidden p-4">
-                          <button
-                            type="button"
-                            onClick={() => toggleProfile(pkg.id)}
-                            className="w-full text-left font-bold text-[#1c1950] hover:text-blue-700 text-sm leading-snug flex items-center justify-between gap-2 cursor-pointer transition-colors group mb-3"
-                            aria-expanded={isExpanded}
-                          >
-                            <span className="group-hover:underline">
-                              {cleanProfileName(pkg.name)} {testCount > 0 ? `(${testCount})` : ""}
-                            </span>
-                          </button>
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleProfile(pkg.id)}
+                              className="w-full text-left font-bold text-[#1c1950] hover:text-blue-700 text-sm leading-snug flex items-center justify-between gap-2 cursor-pointer transition-colors group flex-1"
+                              aria-expanded={isExpanded}
+                            >
+                              <span className="group-hover:underline">
+                                {cleanProfileName(pkg.name)} {testCount > 0 ? `(${testCount})` : ""}
+                              </span>
+                            </button>
+
+                            {/* Mobile + Add Button */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addToCart({
+                                  id: `profile-${pkg.id}`,
+                                  type: "profile",
+                                  name: cleanProfileName(pkg.name),
+                                  b2c,
+                                  testCount,
+                                })
+                              }
+                              className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                getItemCartQty(`profile-${pkg.id}`) > 0
+                                  ? "bg-[#B8893B] text-white"
+                                  : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
+                              }`}
+                            >
+                              {getItemCartQty(`profile-${pkg.id}`) > 0 ? (
+                                <>
+                                  <span>✓</span>
+                                  <span>{getItemCartQty(`profile-${pkg.id}`)}</span>
+                                  <span>+</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>+</span>
+                                  <span>Add</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
 
                           {/* Mobile Pricing Container Boxes: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
                           <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2.5 border-t border-slate-100`}>
@@ -1189,6 +1443,34 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               {craIncentive > 0 ? money(craIncentive) : "₹0"}
                             </div>
                           )}
+
+                          {/* Add + Button */}
+                          <div className="flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addToCart({
+                                  id: `profile-${pkg.id}`,
+                                  type: "profile",
+                                  name: cleanProfileName(pkg.name),
+                                  b2c,
+                                  testCount,
+                                })
+                              }
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                getItemCartQty(`profile-${pkg.id}`) > 0
+                                  ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
+                                  : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
+                              }`}
+                              title={
+                                getItemCartQty(`profile-${pkg.id}`) > 0
+                                  ? `In cart (${getItemCartQty(`profile-${pkg.id}`)}) - click to add another`
+                                  : "Add to referral cart"
+                              }
+                            >
+                              {getItemCartQty(`profile-${pkg.id}`) > 0 ? `+${getItemCartQty(`profile-${pkg.id}`)}` : "+"}
+                            </button>
+                          </div>
                         </div>
 
                         {/* Included Tests Accordion */}
@@ -1281,9 +1563,42 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             </span>
                           )}
                         </div>
-                        <h4 className="font-semibold text-slate-900 text-sm sm:text-base leading-snug">
-                          {t.name}
-                        </h4>
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-semibold text-slate-900 text-sm sm:text-base leading-snug flex-1">
+                            {t.name}
+                          </h4>
+                          {/* Mobile + Add Button */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              addToCart({
+                                id: `test-${t.code}`,
+                                type: "test",
+                                code: t.code,
+                                name: t.name,
+                                b2c,
+                              })
+                            }
+                            className={`shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                              getItemCartQty(`test-${t.code}`) > 0
+                                ? "bg-[#B8893B] text-white"
+                                : "bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white"
+                            }`}
+                          >
+                            {getItemCartQty(`test-${t.code}`) > 0 ? (
+                              <>
+                                <span>✓</span>
+                                <span>{getItemCartQty(`test-${t.code}`)}</span>
+                                <span>+</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>+</span>
+                                <span>Add</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
 
                         {/* Mobile Pricing Grid: Catalogue B2C Rate -> Customer Price -> CRA Incentive */}
                         <div className={`grid ${hasCraIncentive ? "grid-cols-3" : "grid-cols-2"} gap-2 pt-2 border-t border-slate-100`}>
@@ -1307,7 +1622,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                   })}
                 </div>
 
-                {/* Desktop View: Tests Table with: Code | Test Name | Technology | Sample | Catalogue B2C Rate | Customer Price | CRA Incentive */}
+                {/* Desktop View: Tests Table with: Code | Test Name | Technology | Sample | Catalogue B2C Rate | Customer Price | CRA Incentive | Add */}
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left border-collapse table-auto">
                     <thead>
@@ -1341,7 +1656,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                           }`}
                         >
                           <span className="inline-flex items-center gap-1 justify-end">
-                            Catalogue
+                            Catalogue Rate
                             <span className="text-[10px]">{sortField === "b2c" ? (sortAsc ? "▲" : "▼") : "⇅"}</span>
                           </span>
                         </th>
@@ -1371,6 +1686,9 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             </span>
                           </th>
                         )}
+                        <th scope="col" className="px-3 sm:px-4 py-3.5 text-center w-16">
+                          Add
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1405,6 +1723,32 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                 {craIncentive > 0 ? money(craIncentive) : "₹0"}
                               </td>
                             )}
+                            <td className="px-3 sm:px-4 py-3.5 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  addToCart({
+                                    id: `test-${t.code}`,
+                                    type: "test",
+                                    code: t.code,
+                                    name: t.name,
+                                    b2c,
+                                  })
+                                }
+                                className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                                  getItemCartQty(`test-${t.code}`) > 0
+                                    ? "bg-[#B8893B] hover:bg-[#A07631] text-white font-bold text-xs"
+                                    : "bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold"
+                                }`}
+                                title={
+                                  getItemCartQty(`test-${t.code}`) > 0
+                                    ? `In cart (${getItemCartQty(`test-${t.code}`)}) - click to add another`
+                                    : "Add to referral cart"
+                                }
+                              >
+                                {getItemCartQty(`test-${t.code}`) > 0 ? `+${getItemCartQty(`test-${t.code}`)}` : "+"}
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1456,6 +1800,38 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
           )}
         </div>
       </div>
+
+      {/* Floating Referral Cart Button when cart has items and sidebar is closed */}
+      {cart.length > 0 && !isCartOpen && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            type="button"
+            onClick={() => setIsCartOpen(true)}
+            className="inline-flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-full bg-[#1c1950] hover:bg-[#28236f] text-white font-bold text-xs sm:text-sm shadow-xl transition-all active:scale-95 cursor-pointer border border-white/20"
+          >
+            <span className="w-6 h-6 rounded-full bg-[#E0B565] text-[#0F2A43] flex items-center justify-center font-extrabold text-xs">
+              {cart.reduce((s, i) => s + i.quantity, 0)}
+            </span>
+            <span>View Referral Cart</span>
+            <span className="font-extrabold text-[#E0B565]">
+              {money(cart.reduce((s, i) => s + i.b2c * i.quantity, 0))}
+            </span>
+            <span>→</span>
+          </button>
+        </div>
+      )}
+
+      {/* Referral Cart Sidebar Drawer */}
+      <CartSidebar
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        onUpdateQuantity={updateCartQuantity}
+        onRemoveItem={removeFromCart}
+        onClearCart={clearCart}
+        craCategory={craCategory}
+        onSelectCategory={setCraCategory}
+      />
     </section>
   );
 }

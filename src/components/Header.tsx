@@ -1,11 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 
-export default function Header() {
+export interface HeaderProps {
+  onAccessRateList?: () => void;
+  isRateListOpen?: boolean;
+}
+
+export default function Header({
+  onAccessRateList,
+  isRateListOpen = false,
+}: HeaderProps = {}) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const whatsappNumber = "919699690289";
   const whatsappMessage = "Dear Team,\nI need assistance with a customer referral";
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+
+  const handleRateListClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onAccessRateList) {
+      e.preventDefault();
+      onAccessRateList();
+      window.history.pushState(null, "", "#rate-list");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-white/96 backdrop-blur-md border-b border-[#E4E8EC]">
@@ -29,7 +47,7 @@ export default function Header() {
           </a>
         </div>
 
-        {/* Navigation Links */}
+        {/* Navigation Links (Desktop) */}
         <nav className="hidden md:flex items-center gap-6 lg:gap-8 ml-auto">
           <a
             href="#cra-models"
@@ -42,6 +60,17 @@ export default function Header() {
             className="text-[15px] font-semibold text-[#55677A] hover:text-[#0F2A43] py-1 border-b-2 border-transparent hover:border-[#B8893B] transition-colors"
           >
             How It Works
+          </a>
+          <a
+            href="#rate-list"
+            onClick={handleRateListClick}
+            className={`text-[15px] font-semibold py-1 border-b-2 transition-colors cursor-pointer ${
+              isRateListOpen
+                ? "text-[#0F2A43] border-[#B8893B]"
+                : "text-[#55677A] hover:text-[#0F2A43] border-transparent hover:border-[#B8893B]"
+            }`}
+          >
+            Rate list
           </a>
           <a
             href="#register"
@@ -57,8 +86,8 @@ export default function Header() {
           </a>
         </nav>
 
-        {/* WhatsApp Button */}
-        <div className="flex items-center gap-3">
+        {/* Action Controls: WhatsApp & Mobile Menu Button */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <a
             href={whatsappUrl}
             target="_blank"
@@ -75,9 +104,75 @@ export default function Header() {
             </svg>
             <span className="whitespace-nowrap">Chat on WhatsApp</span>
           </a>
+
+          {/* Mobile Hamburger Toggle */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label="Toggle navigation menu"
+            className="md:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            {mobileMenuOpen ? (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
 
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-white border-b border-[#E4E8EC] px-4 pt-2 pb-4 space-y-1 shadow-lg">
+          <a
+            href="#cra-models"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-[#55677A] hover:text-[#0F2A43] hover:bg-slate-50 transition-colors"
+          >
+            CRA Categories
+          </a>
+          <a
+            href="#how-it-works"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-[#55677A] hover:text-[#0F2A43] hover:bg-slate-50 transition-colors"
+          >
+            How It Works
+          </a>
+          <a
+            href="#rate-list"
+            onClick={(e) => {
+              setMobileMenuOpen(false);
+              handleRateListClick(e);
+            }}
+            className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+              isRateListOpen
+                ? "text-[#0F2A43] font-bold bg-[#FAF4EB]"
+                : "text-[#55677A] hover:text-[#0F2A43] hover:bg-slate-50"
+            }`}
+          >
+            Rate list
+          </a>
+          <a
+            href="#register"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-[#55677A] hover:text-[#0F2A43] hover:bg-slate-50 transition-colors"
+          >
+            Register
+          </a>
+          <a
+            href="#faqs"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium text-[#55677A] hover:text-[#0F2A43] hover:bg-slate-50 transition-colors"
+          >
+            FAQs
+          </a>
+        </div>
+      )}
     </header>
   );
 }

@@ -236,55 +236,6 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Preferred CRA Model */}
-            <div className="pt-2">
-              <label className="block text-xs sm:text-sm font-semibold text-slate-800 mb-1">
-                Preferred CRA Catagory
-              </label>
-              <p className="text-xs text-slate-500 mb-3">
-                Select your preferred commercial split between customer discount and partner incentive.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {CRA_MODELS.map((model) => {
-                  const isSelected = preferredModel === model.id;
-                  return (
-                    <button
-                      key={model.id}
-                      type="button"
-                      onClick={() => setPreferredModel(model.id)}
-                      aria-pressed={isSelected}
-                      className={`flex items-start gap-3 p-3.5 sm:p-4 rounded-xl border text-left cursor-pointer transition-all ${
-                        isSelected
-                          ? "bg-[#FDF8EE] border-[#C8923A] shadow-xs ring-1 ring-[#C8923A]/30"
-                          : "bg-white border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      {/* Radio indicator circle ("like the Queen") */}
-                      <span
-                        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                          isSelected ? "border-[#C8923A] bg-white" : "border-slate-300 bg-white"
-                        }`}
-                      >
-                        {isSelected && (
-                          <span className="w-2.5 h-2.5 rounded-full bg-[#C8923A]" />
-                        )}
-                      </span>
-
-                      {/* Content */}
-                      <div className="min-w-0">
-                        <span className="block font-bold text-slate-900 text-sm sm:text-base leading-tight font-sans">
-                          {model.title}
-                        </span>
-                        <span className="block text-xs text-slate-500 mt-1 leading-snug">
-                          {model.subtitle}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Submit Button */}
             <div className="pt-2">
               <button
