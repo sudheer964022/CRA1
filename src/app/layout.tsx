@@ -10,9 +10,9 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "AVMLabs Referral Programme – CRA Model",
+  title: "AVMLabs CRA - Referral Programme || Customer Referral Agency",
   description:
-    "Join the AVMLabs Referral Programme. Share your QR code, AVMLabs handles the testing and reports, and the benefit is shared between the customer and the partner based on the CRA category.",
+    "Join the AVMLabs CRA (Customer Referral Agency). Share your QR code, AVMLabs handles the testing and reports, and the benefit is shared between the customer and the partner based on the CRA category.",
   icons: {
     icon: "/avmlabs-favicon.png",
   },

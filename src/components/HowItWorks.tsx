@@ -20,7 +20,7 @@ const STEPS = [
     title: "Customer Discount",
     tagline: "Customer gets instant discount",
     description:
-      "Your customers receive instant discounts on their diagnostic tests and profiles as per your selected CRA model.",
+      "Your customers receive instant discounts on their diagnostic tests and profiles as per your selected CRA Catagory.",
   },
   {
     step: "04",

@@ -239,7 +239,7 @@ export default function Register() {
             {/* Preferred CRA Model */}
             <div className="pt-2">
               <label className="block text-xs sm:text-sm font-semibold text-slate-800 mb-1">
-                Preferred CRA model
+                Preferred CRA Catagory
               </label>
               <p className="text-xs text-slate-500 mb-3">
                 Select your preferred commercial split between customer discount and partner incentive.

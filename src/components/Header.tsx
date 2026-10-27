@@ -9,7 +9,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white/96 backdrop-blur-md border-b border-[#E4E8EC]">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-4 sm:gap-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex items-center justify-between gap-4 sm:gap-8">
 
         {/* Logo & CRA Sub-brand */}
         <div className="flex items-center gap-3 sm:gap-3.5">

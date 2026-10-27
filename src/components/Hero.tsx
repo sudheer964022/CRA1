@@ -78,7 +78,7 @@ export default function Hero({
   return (
     <section
       id="hero"
-      className="w-full pt-8 sm:pt-14 lg:pt-18 pb-12 sm:pb-16 lg:pb-20 border-b border-[#E4E8EC]"
+      className="w-full pt-3 sm:pt-5 lg:pt-6 pb-10 sm:pb-14 lg:pb-16 border-b border-[#E4E8EC]"
       style={{
         background: "radial-gradient(900px 520px at 88% 0, #F7EFDD 0, rgba(255,255,255,0) 65%), #ffffff",
       }}
