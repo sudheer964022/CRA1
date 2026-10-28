@@ -545,10 +545,10 @@ export function blockingPackage(pkg, cartPackages = new Set(), packageById = {},
   if (!pkg || !cartPackages || !cartPackages.size) return null;
   const overlaps = getOverlappingPackages(pkg, cartPackages, packageById, catalogTestsByCode);
   const blockingList = overlaps.filter(activePkg => {
-    if (isProfileIncludedIn(pkg, activePkg, catalogTestsByCode)) return true;
     if (AVM_TIER_ORDER[pkg.id] && AVM_TIER_ORDER[activePkg.id]) {
       return AVM_TIER_ORDER[activePkg.id] >= AVM_TIER_ORDER[pkg.id];
     }
+    if (isProfileIncludedIn(pkg, activePkg, catalogTestsByCode)) return true;
     return !isBiggerThan(pkg, activePkg, catalogTestsByCode);
   });
   if (blockingList.length === 0) return null;
@@ -564,15 +564,30 @@ export function coveringPackage(pkg, cartPackages = new Set(), packageById = {},
 
 export function packageOwning(testCode, cartPackages = new Set(), packageById = {}, catalogTestsByCode = {}) {
   if (!testCode || !cartPackages || !cartPackages.size) return null;
-  const upper = testCode.toUpperCase();
+  const upper = String(testCode).trim().toUpperCase();
+  const test = catalogTestsByCode[upper] || catalogTestsByCode[upper.toUpperCase()] || {};
+  const aliases = [test.name, ...(test.aliases || [])].filter(Boolean).map(x => cleanTestName(x).toLowerCase());
+  const normalize = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalizedTestName = normalize(test.name);
+  const normalizedAliases = aliases.map(normalize);
 
   for (const activeId of cartPackages) {
     const pkg = packageById[activeId];
     if (!pkg) continue;
+
     const allCodes = getProfileAllCodes(pkg, catalogTestsByCode);
-    if (allCodes.includes(upper)) {
-      return pkg;
-    }
+    if (allCodes.includes(upper)) return pkg;
+
+    const groups = getProfileGroups(pkg, catalogTestsByCode);
+    const coveredByParameter = groups.some(group => {
+      const groupNames = [group.label, ...(group.parameters || [])];
+      return groupNames.some(parameter => {
+        const normalizedParameter = normalize(parameter);
+        if (!normalizedParameter) return false;
+        return normalizedParameter === normalizedTestName || normalizedAliases.includes(normalizedParameter);
+      });
+    });
+    if (coveredByParameter) return pkg;
   }
   return null;
 }

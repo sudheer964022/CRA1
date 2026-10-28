@@ -109,8 +109,12 @@ export default function CartSidebar({
           {/* Header */}
           <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#1c1950] text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                🛒
+              <div className="w-8 h-8 rounded-lg bg-[#1c1950] text-white flex items-center justify-center shadow-xs">
+                <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <circle cx="9" cy="20" r="1" fill="currentColor" stroke="none" />
+                  <circle cx="19" cy="20" r="1" fill="currentColor" stroke="none" />
+                  <path d="M3 4h2l2.4 10.4a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.6L20.5 7H6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
               <div>
                 <h3 className="font-sans font-bold text-slate-900 text-base leading-tight">
@@ -233,9 +237,21 @@ export default function CartSidebar({
                           type="button"
                           onClick={() => onRemoveItem(item.id)}
                           aria-label={`Remove ${item.name}`}
-                          className="text-slate-400 hover:text-rose-600 text-xs font-semibold mt-1 transition-colors cursor-pointer"
+                          title={`Remove ${item.name}`}
+                          className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
                         >
-                          Remove
+                          <svg
+                            className="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 6h18" strokeLinecap="round" />
+                            <path d="M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M10 10v6M14 10v6" strokeLinecap="round" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -322,7 +338,7 @@ export default function CartSidebar({
                     viewBox="0 0 24 24"
                     xmlns="http://www.w3.org/2000/svg"
                   >
-                    <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.1-1.3A10 10 0 1 0 12 2zm5.2 14c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.800s.7-2 1-2.300c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.500l.8 2c.1.200.1.300 0 .500l-.3.4-.4.400c-.1.1-.3.3-.1.600.2.300.8 1.300 1.700 2.100 1.200 1 2.100 1.300 2.400 1.500.3.100.5.100.6-.1l.9-1.100c.2-.2.4-.2.6-.1l1.900.9c.3.100.5.200.5.300.1.200.1.8-.1 1.400z" />
+                    <path d="M12.04 2a9.9 9.9 0 0 0-8.49 14.96L2 22l5.18-1.5A9.94 9.94 0 1 0 12.04 2Zm5.83 14.25c-.25.7-1.47 1.34-2.05 1.43-.53.08-1.21.11-1.95-.12-.45-.14-1.03-.34-1.77-.67-3.12-1.35-5.16-4.5-5.32-4.71-.16-.21-1.27-1.69-1.27-3.22 0-1.53.8-2.28 1.09-2.59.29-.31.63-.39.84-.39h.61c.19.01.44-.07.69.53.25.61.85 2.08.93 2.23.08.16.13.34.03.55-.11.21-.16.34-.32.52-.16.18-.34.41-.48.55-.16.16-.33.33-.14.65.18.31.82 1.35 1.76 2.18 1.21 1.08 2.23 1.42 2.55 1.58.32.16.51.13.69-.08.18-.21.8-.93 1.01-1.25.21-.32.42-.26.71-.16.1.29.29.53.61.7.32.16 1.9.89 2.23 1.05.32.16.54.24.62.37.08.13.08.76-.17 1.46Z" />
                   </svg>
                   <span>Refer via WhatsApp</span>
                 </a>

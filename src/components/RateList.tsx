@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import initialCatalog from "@/lib/catalog.json";
 import {
   cleanProfileName,
   getProfileTestCount,
   getProfileGroups,
+  blockingPackage,
+  packageOwning,
+  AVM_TIER_ORDER,
 } from "@/lib/profileGroups.js";
 import { money } from "@/lib/formatters.js";
 import CartSidebar, { type CartItem, MIN_CART_VALUE } from "@/components/CartSidebar";
@@ -145,13 +148,30 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
     details?: string;
     testCount?: number;
   }) => {
+    if (item.type === "profile") {
+      const pkg = packageById[item.id.replace(/^profile-/, "")];
+      if (pkg && getProfileBlocker(pkg)) return;
+    }
+    if (item.type === "test" && item.code && getTestBlocker(item.code)) return;
+
     setCart((prev) => {
       const idx = prev.findIndex((i) => i.id === item.id);
-      if (idx >= 0) {
-        return prev;
+      if (idx >= 0) return prev;
+
+      let nextCart = prev;
+      const addedId = item.id.replace(/^profile-/, "");
+      const addedTier = (AVM_TIER_ORDER as Record<string, number>)[addedId];
+      if (addedTier) {
+        nextCart = prev.filter((cartItem) => {
+          if (cartItem.type !== "profile") return true;
+          const cartId = cartItem.id.replace(/^profile-/, "");
+          const cartTier = (AVM_TIER_ORDER as Record<string, number>)[cartId];
+          return !cartTier || cartTier >= addedTier;
+        });
       }
+
       return [
-        ...prev,
+        ...nextCart,
         {
           id: item.id,
           type: item.type,
@@ -258,6 +278,19 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
     );
     return list;
   }, [catalog.packages]);
+
+  const cartPackageIds = useMemo(
+    () => new Set(cart.filter((item) => item.type === "profile").map((item) => item.id.replace(/^profile-/, ""))),
+    [cart]
+  );
+  const packageById = useMemo(
+    () => Object.fromEntries(lplPackages.map((pkg: any) => [pkg.id, pkg])),
+    [lplPackages]
+  );
+  const getProfileBlocker = (pkg: any) =>
+    blockingPackage(pkg, cartPackageIds, packageById, catalogTestsByCode);
+  const getTestBlocker = (testCode: string) =>
+    packageOwning(testCode, cartPackageIds, packageById, catalogTestsByCode);
 
   // Tests (filtered to LPL tests by default, matching Camp app)
   const lplTests = useMemo(() => {
@@ -438,98 +471,61 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
     return filteredTests.slice(start, start + pageSize);
   }, [filteredTests, currentPage, pageSize]);
 
-  // Export Table to formatted Excel (.xlsx) using SheetJS
-  const handleExportExcel = () => {
+  // Export the current table to formatted Excel without using the deprecated SheetJS package.
+  const handleExportExcel = async () => {
     try {
-      const wb = XLSX.utils.book_new();
+      const workbook = new ExcelJS.Workbook();
+      const worksheetName = activeTab === "all"
+        ? `All_Items_${craCategory}`
+        : activeTab === "profiles"
+          ? `Profiles_${craCategory}`
+          : `Tests_${craCategory}`;
+      const worksheet = workbook.addWorksheet(worksheetName);
+      let rows: Array<Record<string, string | number>> = [];
 
-      if (activeTab === "all") {
-        const rows = filteredAll.map((item, idx) => {
-          const { customerPrice, craIncentive, companyRealized } = calculateCraPrices(item.b2c, craCategory);
+      if (activeTab === "profiles") {
+        rows = filteredProfiles.map((p, idx) => {
+          const testCount = getProfileTestCount(p, catalogTestsByCode);
+          const b2c = p.pricing?.b2c ?? p.b2c ?? 0;
+          const prices = calculateCraPrices(b2c, craCategory);
+          const groups = getProfileGroups(p, catalogTestsByCode);
+          const summaryTests = groups.map((g: any) => g.parameters?.length ? `${g.label} (${g.parameters.join(', ')})` : g.label).join('; ');
+          return { "S.No": idx + 1, "Profile Name": cleanProfileName(p.name), "Test Count": testCount, "CRA Category": craCategory, "Catalogue B2C Rate (INR)": b2c, "Customer Price (INR)": prices.customerPrice, "CRA Incentive (INR)": prices.craIncentive, "Company Realized (INR)": prices.companyRealized, "Included Tests": summaryTests || p.contentsText || "" };
+        });
+      } else if (activeTab === "tests") {
+        rows = filteredTests.map((t, idx) => {
+          const b2c = t.b2c || 0;
+          const prices = calculateCraPrices(b2c, craCategory);
+          return { "S.No": idx + 1, "Test Code": t.code, "Test Name": t.name, "Technology": t.tech || t.technology || "—", "Sample": t.sample || "—", "CRA Category": craCategory, "Catalogue Rate (INR)": b2c, "Customer Price (INR)": prices.customerPrice, "CRA Incentive (INR)": prices.craIncentive, "Company Realized (INR)": prices.companyRealized };
+        });
+      } else {
+        rows = filteredAll.map((item, idx) => {
+          const prices = calculateCraPrices(item.b2c, craCategory);
           if (item.type === "profile") {
             const pkg = item.pkg;
             const testCount = getProfileTestCount(pkg, catalogTestsByCode);
             const groups = getProfileGroups(pkg, catalogTestsByCode);
-            const summaryTests = groups
-              .map((g: any) => (g.parameters?.length ? `${g.label} (${g.parameters.join(", ")})` : g.label))
-              .join("; ");
-
-            return {
-              "S.No": idx + 1,
-              "Item Type": "Profile",
-              "Code / ID": pkg.id,
-              "Name": item.name,
-              "Details": `${testCount} Tests: ${summaryTests || pkg.contentsText || ""}`,
-              "CRA Category": craCategory,
-              "Catalogue B2C Rate (INR)": item.b2c,
-              "Customer Price (INR)": customerPrice,
-              "CRA Incentive (INR)": craIncentive,
-              "Company Realized (INR)": companyRealized,
-            };
-          } else {
-            const t = item.test;
-            return {
-              "S.No": idx + 1,
-              "Item Type": "Test",
-              "Code / ID": t.code,
-              "Name": t.name,
-              "Details": `Tech: ${t.tech || t.technology || "—"} | Sample: ${t.sample || "—"}`,
-              "CRA Category": craCategory,
-              "Catalogue B2C Rate (INR)": item.b2c,
-              "Customer Price (INR)": customerPrice,
-              "CRA Incentive (INR)": craIncentive,
-              "Company Realized (INR)": companyRealized,
-            };
+            const summaryTests = groups.map((g: any) => g.parameters?.length ? `${g.label} (${g.parameters.join(', ')})` : g.label).join('; ');
+            return { "S.No": idx + 1, "Item Type": "Profile", "Code / ID": pkg.id, "Name": item.name, "Details": `${testCount} Tests: ${summaryTests || pkg.contentsText || ""}`, "CRA Category": craCategory, "Catalogue B2C Rate (INR)": item.b2c, "Customer Price (INR)": prices.customerPrice, "CRA Incentive (INR)": prices.craIncentive, "Company Realized (INR)": prices.companyRealized };
           }
+          const t = item.test;
+          return { "S.No": idx + 1, "Item Type": "Test", "Code / ID": t.code, "Name": t.name, "Details": `Tech: ${t.tech || t.technology || "—"} | Sample: ${t.sample || "—"}`, "CRA Category": craCategory, "Catalogue B2C Rate (INR)": item.b2c, "Customer Price (INR)": prices.customerPrice, "CRA Incentive (INR)": prices.craIncentive, "Company Realized (INR)": prices.companyRealized };
         });
-        const ws = XLSX.utils.json_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, `All_Items_${craCategory}`);
-      } else if (activeTab === "profiles") {
-        const rows = filteredProfiles.map((p, idx) => {
-          const testCount = getProfileTestCount(p, catalogTestsByCode);
-          const b2c = p.pricing?.b2c ?? p.b2c ?? 0;
-          const { customerPrice, craIncentive, companyRealized } = calculateCraPrices(b2c, craCategory);
-          const groups = getProfileGroups(p, catalogTestsByCode);
-          const summaryTests = groups
-            .map((g: any) => (g.parameters?.length ? `${g.label} (${g.parameters.join(", ")})` : g.label))
-            .join("; ");
-
-          return {
-            "S.No": idx + 1,
-            "Profile Name": cleanProfileName(p.name),
-            "Test Count": testCount,
-            "CRA Category": craCategory,
-            "Catalogue B2C Rate (INR)": b2c,
-            "Customer Price (INR)": customerPrice,
-            "CRA Incentive (INR)": craIncentive,
-            "Company Realized (INR)": companyRealized,
-            "Included Tests": summaryTests || p.contentsText || "",
-          };
-        });
-        const ws = XLSX.utils.json_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, `Profiles_${craCategory}`);
-      } else {
-        const rows = filteredTests.map((t, idx) => {
-          const { customerPrice, craIncentive, companyRealized } = calculateCraPrices(t.b2c || 0, craCategory);
-          return {
-            "S.No": idx + 1,
-            "Test Code": t.code,
-            "Test Name": t.name,
-            "Technology": t.tech || t.technology || "—",
-            "Sample": t.sample || "—",
-            "CRA Category": craCategory,
-            "Catalogue Rate (INR)": t.b2c || 0,
-            "Customer Price (INR)": customerPrice,
-            "CRA Incentive (INR)": craIncentive,
-            "Company Realized (INR)": companyRealized,
-          };
-        });
-        const ws = XLSX.utils.json_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, `Tests_${craCategory}`);
       }
 
+      if (rows.length === 0) return;
+      worksheet.addRow(Object.keys(rows[0]));
+      rows.forEach(row => worksheet.addRow(Object.values(row)));
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.columns.forEach((column, index) => column.width = Math.min(45, Math.max(12, String(Object.keys(rows[0])[index] || '').length + 4)));
+      const buffer = await workbook.xlsx.writeBuffer();
+      const url = URL.createObjectURL(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
       const tabTitle = activeTab === "all" ? "All" : activeTab === "profiles" ? "Profiles" : "Tests";
-      XLSX.writeFile(wb, `AVMLabs_${tabTitle}_${craCategory}_RateList.xlsx`);
+      link.href = url;
+      link.download = `AVMLabs_${tabTitle}_${craCategory}_RateList.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Excel export error:", err);
     }
@@ -538,165 +534,58 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
   const currentCategoryMeta = CRA_CATEGORIES[craCategory];
   const hasCraIncentive = currentCategoryMeta.craIncentivePctOnRealized > 0;
   const gridCols = hasCraIncentive
-    ? "sm:grid-cols-[minmax(0,1fr)_150px_135px_135px_56px]"
-    : "sm:grid-cols-[minmax(0,1fr)_165px_145px_56px]";
+  ? "sm:grid-cols-[minmax(0,1fr)_150px_135px_135px_56px]"
+  : "sm:grid-cols-[minmax(0,1fr)_165px_145px_56px]";
 
   return (
     <section id="rate-list" className="py-10 sm:py-14 bg-[#f8fafc] border-b border-slate-200 scroll-mt-20 sm:scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Control Bar */}
         <div className="sticky top-[60px] sm:top-[72px] md:top-[80px] z-40 bg-white rounded-xl border border-slate-200 shadow-sm p-3.5 sm:p-4 mb-4 backdrop-blur-md">
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-            {/* Left: All / Profiles / Tests Toggle */}
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-              <div className="inline-flex p-1 rounded-lg bg-slate-100 border border-slate-200 shrink-0">
-                {/* All Tab */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("all");
-                    setCurrentPage(1);
-                  }}
-                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                    activeTab === "all"
-                      ? "bg-[#1c1950] text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <span>All</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${
-                      activeTab === "all"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {lplPackages.length + lplTests.length}
-                  </span>
-                </button>
-
-                {/* Profiles Tab */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("profiles");
-                    setCurrentPage(1);
-                  }}
-                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                    activeTab === "profiles"
-                      ? "bg-[#1c1950] text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <span>Profiles</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${
-                      activeTab === "profiles"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {lplPackages.length}
-                  </span>
-                </button>
-
-                {/* Tests Tab */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("tests");
-                    setCurrentPage(1);
-                  }}
-                  className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
-                    activeTab === "tests"
-                      ? "bg-[#1c1950] text-white shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  <span>Tests</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${
-                      activeTab === "tests"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {lplTests.length}
-                  </span>
-                </button>
+          <div className="flex flex-col gap-2">
+            {/* First row: CRA categories */}
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+            <span className="hidden text-[11px] font-bold text-slate-500 uppercase tracking-wide shrink-0 sm:block sm:w-[72px]">Category</span>
+            <fieldset className="min-w-0 flex-1">
+              <legend className="sr-only">Select CRA category</legend>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                {(Object.keys(CRA_CATEGORIES) as CraCategory[]).map((category) => {
+                  const isSelected = craCategory === category;
+                  const details = category === "C4000" ? "40% customer discount · 0% partner incentive" : category === "C2525" ? "25% customer discount · 25% partner incentive" : "0% customer discount · 40% partner incentive";
+                  return (
+                    <label key={category} className={`flex min-h-[38px] items-center justify-center gap-1.5 px-1 py-2 rounded-lg border cursor-pointer transition-colors sm:min-h-[44px] sm:justify-start sm:gap-2.5 sm:px-3 ${isSelected ? "border-[#1c1950] bg-[#1c1950]/5" : "border-slate-300 bg-white hover:border-slate-400"}`} title={details}>
+                      <input type="radio" name="cra-category" value={category} checked={isSelected} onChange={() => { setCraCategory(category); setCurrentPage(1); }} className="h-4 w-4 accent-[#1c1950] cursor-pointer shrink-0" />
+                      <span className="flex min-w-0 flex-col leading-tight sm:flex-none">
+                        <span className="text-[11px] font-bold text-[#1c1950] sm:text-xs">{category}</span>
+                        <span className="hidden mt-0.5 text-[9px] leading-snug text-slate-500 sm:block">{details}</span>
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
-            </div>
-
-            {/* Middle & Right: Search Box & Excel Export */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="relative flex-1 min-w-0">
-                <span className="pointer-events-none absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </span>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder={
-                    activeTab === "all"
-                      ? "Search all profiles and tests (e.g. AVM 1, Lipid, TSH)..."
-                      : activeTab === "profiles"
-                      ? "Search profiles (e.g. AVM 1, Lipid)..."
-                      : "Search tests (e.g. TSH, Glucose)..."
-                  }
-                  className="w-full pl-9.5 pr-8 py-2 rounded-lg border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#1c1950] focus:ring-1 focus:ring-[#1c1950]/20 transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    aria-label="Clear search"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Excel Export Button */}
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 transition-colors shadow-xs cursor-pointer shrink-0"
-                title="Download Rate Card in Excel format"
-              >
-                <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                <span>Excel</span>
-              </button>
-
-              {/* Close Rate List Button */}
-              {onClose && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 transition-colors shadow-xs cursor-pointer shrink-0"
-                  title="Close Rate List"
-                >
-                  <span className="text-slate-400 font-bold">✕</span>
-                  <span>Close</span>
-                </button>
-              )}
-            </div>
+            </fieldset>
           </div>
 
-          {/* Secondary Filters for Tests tab */}
+          {/* Second row: tabs, search and actions */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="grid grid-cols-3 w-full p-1 rounded-lg bg-slate-100 border border-slate-200 shrink-0 sm:inline-flex sm:w-fit">
+              <button type="button" onClick={() => { setActiveTab("all"); setCurrentPage(1); }} className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "all" ? "bg-[#1c1950] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}><span>All</span><span className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${activeTab === "all" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>{lplPackages.length + lplTests.length}</span></button>
+              <button type="button" onClick={() => { setActiveTab("profiles"); setCurrentPage(1); }} className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "profiles" ? "bg-[#1c1950] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}><span>Profiles</span><span className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${activeTab === "profiles" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>{lplPackages.length}</span></button>
+              <button type="button" onClick={() => { setActiveTab("tests"); setCurrentPage(1); }} className={`flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "tests" ? "bg-[#1c1950] text-white shadow-xs" : "text-slate-600 hover:text-slate-900"}`}><span>Tests</span><span className={`px-1.5 py-0.5 rounded text-xs font-bold leading-none ${activeTab === "tests" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>{lplTests.length}</span></button>
+            </div>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] min-w-0 flex-1 items-center gap-2 sm:flex">
+              <div className="relative min-w-0 flex-1">
+                <span className="pointer-events-none absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></span>
+                <input type="text" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} placeholder={activeTab === "all" ? "Search all profiles and tests (e.g. AVM 1, Lipid, TSH)..." : activeTab === "profiles" ? "Search profiles (e.g. AVM 1, Lipid)..." : "Search tests (e.g. TSH, Glucose)..."} className="w-full pl-9.5 pr-8 py-2 rounded-lg border border-slate-300 bg-white text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#1c1950] focus:ring-1 focus:ring-[#1c1950]/20 transition-all" />
+                {searchQuery && <button type="button" onClick={() => setSearchQuery("")} aria-label="Clear search" className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>}
+              </div>
+              <button type="button" onClick={handleExportExcel} className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 transition-colors shadow-xs cursor-pointer shrink-0" title="Download Rate Card in Excel format"><svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg><span>Excel</span></button>
+              {onClose && <button type="button" onClick={onClose} className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-700 transition-colors shadow-xs cursor-pointer shrink-0" title="Close Rate List"><span className="text-slate-400 font-bold">✕</span><span>Close</span></button>}
+            </div>
+          </div>
+          </div>
+
+                    {/* Secondary Filters for Tests tab */}
           {activeTab === "tests" && (
             <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
               <span className="font-bold text-slate-400 uppercase tracking-wider text-[11px] shrink-0 mr-1">
@@ -932,20 +821,21 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               ) : (
                                 <button
                                   type="button"
+                                  disabled={!!getProfileBlocker(pkg)}
                                   onClick={() =>
                                     addToCart({
                                       id: `profile-${pkg.id}`,
                                       type: "profile",
                                       name: cleanProfileName(pkg.name),
-                                      b2c: item.b2c,
-                                      testCount,
-                                    })
-                                  }
-                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                  title="Add to referral cart"
+                                      b2c: pkg.pricing?.b2c ?? pkg.b2c ?? 0,
+                                      testCount: getProfileTestCount(pkg, catalogTestsByCode),
+                                    })}
+                                  className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECDDC7] bg-[#FAF4EB] text-[#B8893B] hover:bg-[#B8893B] hover:text-white disabled:cursor-not-allowed disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100"
+                                  title={getProfileBlocker(pkg) ? `Covered by ${getProfileBlocker(pkg).name}` : "Add to referral cart"}
                                 >
-                                  <span>+</span>
-                                  <span>Add</span>
+                                  {getProfileBlocker(pkg) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : <span>+</span>}
                                 </button>
                               )}
                             </div>
@@ -1029,19 +919,21 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               ) : (
                                 <button
                                   type="button"
+                                  disabled={!!getProfileBlocker(pkg)}
                                   onClick={() =>
                                     addToCart({
                                       id: `profile-${pkg.id}`,
                                       type: "profile",
                                       name: cleanProfileName(pkg.name),
-                                      b2c: item.b2c,
-                                      testCount,
-                                    })
-                                  }
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                  title="Add to referral cart"
+                                      b2c: pkg.pricing?.b2c ?? pkg.b2c ?? 0,
+                                      testCount: getProfileTestCount(pkg, catalogTestsByCode),
+                                    })}
+                                  className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECDDC7] bg-[#FAF4EB] text-[#B8893B] hover:bg-[#B8893B] hover:text-white disabled:cursor-not-allowed disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100"
+                                  title={getProfileBlocker(pkg) ? `Covered by ${getProfileBlocker(pkg).name}` : "Add to referral cart"}
                                 >
-                                  +
+                                  {getProfileBlocker(pkg) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : <span>+</span>}
                                 </button>
                               )}
                             </div>
@@ -1119,6 +1011,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               ) : (
                                 <button
                                   type="button"
+                                  disabled={!!getTestBlocker(t.code)}
                                   onClick={() =>
                                     addToCart({
                                       id: `test-${t.code}`,
@@ -1128,11 +1021,12 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                       b2c: item.b2c,
                                     })
                                   }
-                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                  title="Add to referral cart"
+                                  className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title={getTestBlocker(t.code) ? `Covered by ${getTestBlocker(t.code).name}` : "Add to referral cart"}
                                 >
-                                  <span>+</span>
-                                  <span>Add</span>
+                                  {getTestBlocker(t.code) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : <><span>+</span><span>Add</span></>}
                                 </button>
                               )}
                             </div>
@@ -1198,6 +1092,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               ) : (
                                 <button
                                   type="button"
+                                  disabled={!!getTestBlocker(t.code)}
                                   onClick={() =>
                                     addToCart({
                                       id: `test-${t.code}`,
@@ -1207,10 +1102,12 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                       b2c: item.b2c,
                                     })
                                   }
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                  title="Add to referral cart"
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title={getTestBlocker(t.code) ? `Covered by ${getTestBlocker(t.code).name}` : "Add to referral cart"}
                                 >
-                                  +
+                                  {getTestBlocker(t.code) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : '+'}
                                 </button>
                               )}
                             </div>
@@ -1373,21 +1270,22 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             ) : (
                               <button
                                 type="button"
+                                  disabled={!!getProfileBlocker(pkg)}
                                 onClick={() =>
-                                  addToCart({
-                                    id: `profile-${pkg.id}`,
-                                    type: "profile",
-                                    name: cleanProfileName(pkg.name),
-                                    b2c,
-                                    testCount,
-                                  })
-                                }
-                                className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                title="Add to referral cart"
-                              >
-                                <span>+</span>
-                                <span>Add</span>
-                              </button>
+                                    addToCart({
+                                      id: `profile-${pkg.id}`,
+                                      type: "profile",
+                                      name: cleanProfileName(pkg.name),
+                                      b2c: pkg.pricing?.b2c ?? pkg.b2c ?? 0,
+                                      testCount: getProfileTestCount(pkg, catalogTestsByCode),
+                                    })}
+                                  className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECDDC7] bg-[#FAF4EB] text-[#B8893B] hover:bg-[#B8893B] hover:text-white disabled:cursor-not-allowed disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100"
+                                  title={getProfileBlocker(pkg) ? `Covered by ${getProfileBlocker(pkg).name}` : "Add to referral cart"}
+                                >
+                                  {getProfileBlocker(pkg) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : <span>+</span>}
+                                </button>
                             )}
                           </div>
 
@@ -1459,20 +1357,22 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                             ) : (
                               <button
                                 type="button"
+                                  disabled={!!getProfileBlocker(pkg)}
                                 onClick={() =>
-                                  addToCart({
-                                    id: `profile-${pkg.id}`,
-                                    type: "profile",
-                                    name: cleanProfileName(pkg.name),
-                                    b2c,
-                                    testCount,
-                                  })
-                                }
-                                className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                title="Add to referral cart"
-                              >
-                                +
-                              </button>
+                                    addToCart({
+                                      id: `profile-${pkg.id}`,
+                                      type: "profile",
+                                      name: cleanProfileName(pkg.name),
+                                      b2c: pkg.pricing?.b2c ?? pkg.b2c ?? 0,
+                                      testCount: getProfileTestCount(pkg, catalogTestsByCode),
+                                    })}
+                                  className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECDDC7] bg-[#FAF4EB] text-[#B8893B] hover:bg-[#B8893B] hover:text-white disabled:cursor-not-allowed disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100"
+                                  title={getProfileBlocker(pkg) ? `Covered by ${getProfileBlocker(pkg).name}` : "Add to referral cart"}
+                                >
+                                  {getProfileBlocker(pkg) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : <span>+</span>}
+                                </button>
                             )}
                           </div>
                         </div>
@@ -1585,6 +1485,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                           ) : (
                             <button
                               type="button"
+                              disabled={!!getTestBlocker(t.code)}
                               onClick={() =>
                                 addToCart({
                                   id: `test-${t.code}`,
@@ -1595,10 +1496,11 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                 })
                               }
                               className="shrink-0 inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-lg text-xs font-bold bg-[#FAF4EB] text-[#B8893B] border border-[#ECDDC7] hover:bg-[#B8893B] hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
-                              title="Add to referral cart"
+                              title={getTestBlocker(t.code) ? `Covered by ${getTestBlocker(t.code).name}` : "Add to referral cart"}
                             >
-                              <span>+</span>
-                              <span>Add</span>
+                              {getTestBlocker(t.code) ? (
+                                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                              ) : <><span>+</span><span>Add</span></>}
                             </button>
                           )}
                         </div>
@@ -1739,6 +1641,7 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                               ) : (
                                 <button
                                   type="button"
+                                  disabled={!!getTestBlocker(t.code)}
                                   onClick={() =>
                                     addToCart({
                                       id: `test-${t.code}`,
@@ -1748,10 +1651,12 @@ export default function RateList({ selectedModel = "C4000", onClose }: RateListP
                                       b2c,
                                     })
                                   }
-                                  className="w-8 h-8 rounded-lg inline-flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold transition-all active:scale-95 cursor-pointer shadow-2xs"
-                                  title="Add to referral cart"
+                                  className="w-8 h-8 rounded-lg inline-flex items-center justify-center bg-[#FAF4EB] hover:bg-[#B8893B] text-[#B8893B] hover:text-white border border-[#ECDDC7] text-lg font-bold disabled:bg-[#FFF8EC] disabled:text-[#B8893B] disabled:border-[#E6C98F] disabled:opacity-100 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer shadow-2xs"
+                                  title={getTestBlocker(t.code) ? `Covered by ${getTestBlocker(t.code).name}` : "Add to referral cart"}
                                 >
-                                  +
+                                  {getTestBlocker(t.code) ? (
+                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 8l8 8" strokeLinecap="round" /></svg>
+                                  ) : '+'}
                                 </button>
                               )}
                             </td>

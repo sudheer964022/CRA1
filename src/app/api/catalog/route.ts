@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const TECHNOLOGIES = [
   { id: "photometry", label: "Photometry", fg: "#0B3E66", bd: "#1E63B4", bg: "#DDEAF7" },
@@ -211,11 +211,21 @@ export async function GET() {
       }
 
       const buf = fs.readFileSync(excelPath);
-      const wb = XLSX.read(buf, { type: 'buffer' });
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf as any);
+      const sheetToRows = (sheetName: string) => {
+        const worksheet = wb.getWorksheet(sheetName);
+        if (!worksheet) return [];
+        const rows: any[] = [];
+        worksheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+          const values = Array.isArray(row.values) ? row.values.slice(1) : [];
+          rows[rowNumber - 1] = values;
+        });
+        return rows;
+      };
 
       // 1. LPL Tests
-      const lplSheet = wb.Sheets['LPL TESTS'];
-      const lplRows: any[] = XLSX.utils.sheet_to_json(lplSheet, { header: 1 });
+      const lplRows: any[] = sheetToRows('LPL TESTS').filter(Boolean);
       const lplTests: any[] = [];
       for (let r = 1; r < lplRows.length; r++) {
         const row = lplRows[r];
@@ -300,8 +310,7 @@ export async function GET() {
       }
 
       // 2. CRL Tests
-      const crlSheet = wb.Sheets['CRL TESTS'];
-      const crlRows: any[] = XLSX.utils.sheet_to_json(crlSheet, { header: 1 });
+      const crlRows: any[] = sheetToRows('CRL TESTS').filter(Boolean);
       const crlTests: any[] = [];
       for (let r = 1; r < crlRows.length; r++) {
         const row = crlRows[r];
@@ -408,7 +417,7 @@ export async function GET() {
       const packages: any[] = [];
 
       // LPL Profile
-      const lplP: any[] = XLSX.utils.sheet_to_json(wb.Sheets['LPL PROFILE'], { header: 1 });
+      const lplP: any[] = sheetToRows('LPL PROFILE');
       for (let r = 1; r < lplP.length; r++) {
         const row = lplP[r];
         if (!row || !row[1] || row[4] === undefined) continue;
@@ -449,8 +458,8 @@ export async function GET() {
       }
 
       // CRL Profile
-      if (wb.Sheets['CRL PROFILE']) {
-        const crlP: any[] = XLSX.utils.sheet_to_json(wb.Sheets['CRL PROFILE'], { header: 1 });
+      if (wb.getWorksheet('CRL PROFILE')) {
+        const crlP: any[] = sheetToRows('CRL PROFILE');
         for (let r = 1; r < crlP.length; r++) {
           const row = crlP[r];
           if (!row || !row[2] || row[6] === undefined) continue;
@@ -517,8 +526,8 @@ export async function GET() {
       }
 
       // Speciality Profile
-      if (wb.Sheets['SPECIALITY PROFILE']) {
-        const spP: any[] = XLSX.utils.sheet_to_json(wb.Sheets['SPECIALITY PROFILE'], { header: 1 });
+      if (wb.getWorksheet('SPECIALITY PROFILE')) {
+        const spP: any[] = sheetToRows('SPECIALITY PROFILE');
         for (let r = 1; r < spP.length; r++) {
           const row = spP[r];
           if (!row || !row[1] || (row[4] === undefined && row[5] === undefined)) continue;

@@ -137,7 +137,7 @@ export default function Hero({
                 <span className="text-[#B8893B] font-bold">✓</span>Get incentive on referral
               </span>
               <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5">
-                <span className="text-[#B8893B] font-bold">✓</span>Choose Categorie according to your convenience (C4000, C2525, C0040)
+                <span className="text-[#B8893B] font-bold">✓</span>Choose a category according to your convenience (C4000, C2525, C0040)
               </span>
             </div>
           </div>
@@ -160,44 +160,53 @@ export default function Hero({
               </div>
 
               {/* 3 Model Selector Pills */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-5">
-                {(["C4000", "C2525", "C0040"] as CraModelKey[]).map((key) => {
-                  const item = MODEL_CALCULATIONS[key];
-                  const isSelected = selectedModel === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleSelectModel(key)}
-                      aria-pressed={isSelected}
-                      className={`flex flex-col items-start p-2.5 sm:p-3 rounded-xl border text-left cursor-pointer transition-all ${isSelected
-                          ? "border-[#E0B565] bg-[rgba(184,137,59,0.3)]"
-                          : "border-white/20 bg-transparent hover:bg-white/[0.08]"
-                        }`}
-                    >
-                      <div className="flex items-center gap-1.5 w-full">
-                        <span
-                          className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-[#E0B565]" : "border-[#B5C3D1]"
-                            }`}
-                        >
-                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#E0B565]" />}
+              <fieldset className="mb-5">
+                <legend className="sr-only">Select CRA category</legend>
+                <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                  {(["C4000", "C2525", "C0040"] as CraModelKey[]).map((key) => {
+                    const item = MODEL_CALCULATIONS[key];
+                    const isSelected = selectedModel === key;
+                    return (
+                      <label
+                        key={key}
+                        className={`min-w-0 flex min-h-[92px] cursor-pointer flex-col rounded-xl border p-2.5 text-left transition-all sm:p-3 ${isSelected
+                            ? "border-[#E0B565] bg-[rgba(184,137,59,0.30)] shadow-[inset_0_0_0_1px_rgba(224,181,101,0.35)]"
+                            : "border-white/20 bg-transparent hover:border-white/40 hover:bg-white/[0.08]"
+                          }`}
+                      >
+                        <input
+                          type="radio"
+                          name="hero-cra-category"
+                          value={key}
+                          checked={isSelected}
+                          onChange={() => handleSelectModel(key)}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center gap-1.5 w-full">
+                          <span
+                            className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? "border-[#E0B565]" : "border-[#B5C3D1]"
+                              }`}
+                            aria-hidden="true"
+                          >
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#E0B565]" />}
+                          </span>
+                          <span className="min-w-0 font-bold text-white text-xs sm:text-sm leading-none font-sans">
+                            {item.label}
+                          </span>
+                        </div>
+                        <span className="mt-1.5 space-y-0.5 text-left">
+                          <span className="block text-[9px] leading-tight text-[#E8EEF4] font-medium sm:text-[11px]">
+                            {item.customerDiscount}
+                          </span>
+                          <span className="block text-[9px] leading-tight text-[#E0B565] font-semibold sm:text-[11px]">
+                            {item.partnerIncentive}
+                          </span>
                         </span>
-                        <span className="font-bold text-white text-xs sm:text-sm leading-none font-sans">
-                          {item.label}
-                        </span>
-                      </div>
-                      <div className="mt-1.5 pl-4 sm:pl-5 space-y-0.5 text-left">
-                        <span className="block text-[10px] sm:text-[11px] text-[#E8EEF4] font-medium leading-tight">
-                          {item.customerDiscount}
-                        </span>
-                        <span className="block text-[10px] sm:text-[11px] text-[#E0B565] font-semibold leading-tight">
-                          {item.partnerIncentive}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
 
               {/* 3 Calculation Metrics Boxes */}
               <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-5">
