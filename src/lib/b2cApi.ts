@@ -92,7 +92,19 @@ export async function getGuestToken(forceRefresh = false): Promise<string> {
       cache: "no-store",
     });
 
-    const result: GuestLoginResponse = await response.json();
+    const text = await response.text();
+    let result: GuestLoginResponse;
+    try {
+      result = text ? JSON.parse(text) : ({} as GuestLoginResponse);
+    } catch {
+      console.error("[B2C API Guest Login Parse Error]", {
+        status: response.status,
+        text,
+      });
+      throw new Error(
+        "Unable to establish a secure connection to the partner service. Please try again in a few moments."
+      );
+    }
 
     if (!response.ok || !result.success || !result.data?.accessToken) {
       console.error("[B2C API Guest Login Error]", {
@@ -132,7 +144,7 @@ export async function registerCraLead(payload: RegisterCraPartnerPayload): Promi
   let token = await getGuestToken();
 
   const makeRequest = async (bearerToken: string) => {
-    return fetch(`${baseUrl}/api/v1/cra-lead/register`, {
+    return fetch(`${baseUrl}/api/v1/cra-leads/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -156,7 +168,23 @@ export async function registerCraLead(payload: RegisterCraPartnerPayload): Promi
     response = await makeRequest(token);
   }
 
-  const result: RegisterCraPartnerResponse = await response.json();
+  const rawText = await response.text();
+  let result: RegisterCraPartnerResponse;
+  try {
+    result = rawText ? JSON.parse(rawText) : ({} as RegisterCraPartnerResponse);
+  } catch {
+    console.error("[B2C API Register Lead Parse Error]", {
+      status: response.status,
+      statusText: response.statusText,
+      body: rawText,
+    });
+    return {
+      success: false,
+      statusCode: response.status || 500,
+      message:
+        "Unable to process partner registration response. Please try again in a few moments.",
+    };
+  }
 
   if (!response.ok || !result.success) {
     console.error("[B2C API Register Lead Error]", {
@@ -178,6 +206,8 @@ export async function registerCraLead(payload: RegisterCraPartnerPayload): Promi
       statusCode: response.status,
       message: userFriendlyMessage,
       errors: result.errors,
+      traceId: result.traceId,
+      timestamp: result.timestamp,
     };
   }
 

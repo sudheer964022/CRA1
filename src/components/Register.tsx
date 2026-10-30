@@ -12,7 +12,6 @@ export default function Register() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [apiSuccessMessage, setApiSuccessMessage] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,22 +55,27 @@ export default function Register() {
         }),
       });
 
-      const data = await response.json();
+      let data: { success?: boolean; message?: string } | null = null;
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
 
-      if (!response.ok || !data.success) {
+      if (!response.ok || !data?.success) {
         setHasError(true);
-        setErrorMessage(data.message || "Failed to submit registration. Please try again.");
+        setErrorMessage(
+          data?.message || "Failed to submit registration. Please try again."
+        );
         return;
       }
 
-      if (data.message) {
-        setApiSuccessMessage(data.message);
-      }
       setIsSubmitted(true);
     } catch (err: unknown) {
       setHasError(true);
       setErrorMessage(
-        err instanceof Error
+        err instanceof Error && !err.message.includes("JSON")
           ? err.message
           : "An unexpected network error occurred. Please try again later."
       );
@@ -88,7 +92,6 @@ export default function Register() {
     setPincode("");
     setHasError(false);
     setErrorMessage("");
-    setApiSuccessMessage("");
   };
 
   return (

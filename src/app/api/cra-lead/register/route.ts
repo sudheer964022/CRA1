@@ -67,7 +67,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {
     console.error("CRA Lead registration error:", error);
-    const message = error instanceof Error ? error.message : "Internal server error occurred.";
+    const message =
+      error instanceof Error && !error.message.includes("JSON")
+        ? error.message
+        : "Failed to submit partner registration. Please try again later.";
     return NextResponse.json({ success: false, message }, { status: 500 });
   }
 }
