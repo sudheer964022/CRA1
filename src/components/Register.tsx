@@ -2,66 +2,34 @@
 
 import { useState } from "react";
 
-export type CraModel = "C4000" | "C2525" | "C0040";
-
-interface CraModelOption {
-  id: CraModel;
-  title: string;
-  subtitle: string;
-}
-
-const CRA_MODELS: CraModelOption[] = [
-  {
-    id: "C4000",
-    title: "C4000",
-    subtitle: "40% customer discount · 0% partner incentive",
-  },
-  {
-    id: "C2525",
-    title: "C2525",
-    subtitle: "25% customer discount · 25% partner incentive",
-  },
-  {
-    id: "C0040",
-    title: "C0040",
-    subtitle: "0% customer discount · 40% partner incentive",
-  },
-];
-
-const PARTNER_TYPES = [
-  "Pharmacy",
-  "Clinic / Doctor",
-  "Diagnostic Lab / Collection Centre",
-  "Hospital / Nursing Home",
-  "Wellness Centre / Gym / Nutritionist",
-  "Individual Healthcare Professional",
-  "Corporate / Organization",
-  "Other",
-];
-
 export default function Register() {
   const [fullName, setFullName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [pincode, setPincode] = useState("");
-  const [preferredModel, setPreferredModel] = useState<CraModel>("C0040");
 
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [apiSuccessMessage, setApiSuccessMessage] = useState("");
 
-  const selectedModelMeta = CRA_MODELS.find((m) => m.id === preferredModel);
-
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!fullName.trim()) {
       setHasError(true);
       setErrorMessage("Please enter your full name.");
       return;
     }
-    if (!mobileNumber.trim() || mobileNumber.trim().length < 10) {
+    if (!mobileNumber.trim() || mobileNumber.trim().length !== 10) {
       setHasError(true);
       setErrorMessage("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setHasError(true);
+      setErrorMessage("Please enter a valid email address.");
       return;
     }
     if (!pincode.trim() || pincode.trim().length !== 6) {
@@ -72,7 +40,44 @@ export default function Register() {
 
     setHasError(false);
     setErrorMessage("");
-    setIsSubmitted(true);
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/cra-lead/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          mobile: mobileNumber.trim(),
+          email: email.trim() || null,
+          pincode: pincode.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setHasError(true);
+        setErrorMessage(data.message || "Failed to submit registration. Please try again.");
+        return;
+      }
+
+      if (data.message) {
+        setApiSuccessMessage(data.message);
+      }
+      setIsSubmitted(true);
+    } catch (err: unknown) {
+      setHasError(true);
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : "An unexpected network error occurred. Please try again later."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -81,9 +86,9 @@ export default function Register() {
     setMobileNumber("");
     setEmail("");
     setPincode("");
-    setPreferredModel("C0040");
     setHasError(false);
     setErrorMessage("");
+    setApiSuccessMessage("");
   };
 
   return (
@@ -114,7 +119,8 @@ export default function Register() {
               Registration Received — Ready for Onboarding
             </h3>
             <p className="mt-2.5 text-slate-600 text-sm sm:text-base leading-relaxed">
-              Thank you, <strong className="text-slate-900">{fullName}</strong>. Your partner registration details have been securely recorded. Our onboarding team will contact you on <strong className="text-slate-900">{mobileNumber}</strong> to complete KYC verification and activate your partner access within 24 to 48 hours.
+              Thank you, <strong className="text-slate-900">{fullName}</strong>. Your partner registration details have been securely recorded. Our onboarding team will contact you on{" "}
+              <strong className="text-slate-900">{mobileNumber}</strong> to complete KYC verification and activate your partner account within 24 to 48 hours.
             </p>
 
             <div className="bg-white border border-slate-200 rounded-xl p-4 mt-6 text-left max-w-md mx-auto grid grid-cols-2 gap-3 text-xs sm:text-sm">
@@ -126,10 +132,12 @@ export default function Register() {
                 <span className="text-slate-400 block text-[11px] uppercase tracking-wider font-semibold">Pincode</span>
                 <span className="text-slate-800 font-semibold">{pincode}</span>
               </div>
-              <div className="col-span-2 border-t border-slate-100 pt-2">
-                <span className="text-slate-400 block text-[11px] uppercase tracking-wider font-semibold">Preferred Model</span>
-                <span className="text-[#B8893B] font-bold">{preferredModel} ({selectedModelMeta?.subtitle})</span>
-              </div>
+              {email && (
+                <div className="col-span-2 border-t border-slate-100 pt-2">
+                  <span className="text-slate-400 block text-[11px] uppercase tracking-wider font-semibold">Email</span>
+                  <span className="text-slate-800 font-semibold">{email}</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-7">
@@ -160,13 +168,14 @@ export default function Register() {
                 <input
                   id="reg-fullname"
                   type="text"
+                  disabled={isSubmitting}
                   value={fullName}
                   onChange={(e) => {
                     setFullName(e.target.value);
                     if (hasError) setHasError(false);
                   }}
                   placeholder="e.g. Dr. Rajesh Kumar"
-                  className={`w-full px-3.5 py-2.5 sm:py-3 rounded-lg border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors ${
+                  className={`w-full px-3.5 py-2.5 sm:py-3 rounded-lg border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors disabled:bg-slate-50 disabled:cursor-not-allowed ${
                     hasError && !fullName.trim()
                       ? "border-red-400 focus:border-red-500"
                       : "border-slate-300 focus:border-[#0E294B] focus:ring-1 focus:ring-[#0E294B]/20"
@@ -183,14 +192,15 @@ export default function Register() {
                   id="reg-mobile"
                   type="tel"
                   maxLength={10}
+                  disabled={isSubmitting}
                   value={mobileNumber}
                   onChange={(e) => {
                     setMobileNumber(e.target.value.replace(/\D/g, ""));
                     if (hasError) setHasError(false);
                   }}
                   placeholder="10-digit number"
-                  className={`w-full px-3.5 py-2.5 sm:py-3 rounded-lg border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors ${
-                    hasError && (!mobileNumber.trim() || mobileNumber.trim().length < 10)
+                  className={`w-full px-3.5 py-2.5 sm:py-3 rounded-lg border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors disabled:bg-slate-50 disabled:cursor-not-allowed ${
+                    hasError && (!mobileNumber.trim() || mobileNumber.trim().length !== 10)
                       ? "border-red-400 focus:border-red-500"
                       : "border-slate-300 focus:border-[#0E294B] focus:ring-1 focus:ring-[#0E294B]/20"
                   }`}
@@ -205,10 +215,14 @@ export default function Register() {
                 <input
                   id="reg-email"
                   type="email"
+                  disabled={isSubmitting}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (hasError) setHasError(false);
+                  }}
                   placeholder="name@example.com"
-                  className="w-full px-3.5 py-2.5 sm:py-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0E294B] focus:ring-1 focus:ring-[#0E294B]/20 transition-colors"
+                  className="w-full px-3.5 py-2.5 sm:py-3 rounded-lg border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#0E294B] focus:ring-1 focus:ring-[#0E294B]/20 transition-colors disabled:bg-slate-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -221,13 +235,14 @@ export default function Register() {
                   id="reg-pincode"
                   type="text"
                   maxLength={6}
+                  disabled={isSubmitting}
                   value={pincode}
                   onChange={(e) => {
                     setPincode(e.target.value.replace(/\D/g, ""));
                     if (hasError) setHasError(false);
                   }}
                   placeholder="6-digit pincode (e.g. 500081)"
-                  className={`w-full px-3.5 py-2.5 sm:py-3 rounded-lg border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors ${
+                  className={`w-full px-3.5 py-2.5 sm:py-3 rounded-lg border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors disabled:bg-slate-50 disabled:cursor-not-allowed ${
                     hasError && (!pincode.trim() || pincode.trim().length !== 6)
                       ? "border-red-400 focus:border-red-500"
                       : "border-slate-300 focus:border-[#0E294B] focus:ring-1 focus:ring-[#0E294B]/20"
@@ -240,9 +255,36 @@ export default function Register() {
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full inline-flex items-center justify-center px-6 py-3.5 sm:py-4 rounded-full bg-[#0F2A43] hover:bg-[#1B4268] text-white font-bold text-sm sm:text-base shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer font-sans"
+                disabled={isSubmitting}
+                className="w-full inline-flex items-center justify-center px-6 py-3.5 sm:py-4 rounded-full bg-[#0F2A43] hover:bg-[#1B4268] text-white font-bold text-sm sm:text-base shadow-sm hover:shadow-md transition-all active:scale-[0.99] cursor-pointer font-sans disabled:opacity-75 disabled:cursor-not-allowed gap-2"
               >
-                <span>Submit Details</span>
+                {isSubmitting ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      />
+                    </svg>
+                    <span>Submitting Details...</span>
+                  </>
+                ) : (
+                  <span>Submit Details</span>
+                )}
               </button>
               <p className="mt-2.5 text-xs text-slate-500 text-center">
                 No registration fee deposit required. Our onboarding team will contact you for KYC and activation.
