@@ -30,6 +30,8 @@ export interface RegisterCraPartnerResponse {
   };
   errorCode?: string;
   errors?: Record<string, string[]>;
+  traceId?: string;
+  timestamp?: string;
 }
 
 // In-memory token cache for guest session

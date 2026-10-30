@@ -47,8 +47,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success) {
+      console.error("[CRA Lead Failed to Register with B2C API]", {
+        payload: { fullName: fullName.trim(), mobile: cleanMobile, email, pincode: cleanPincode },
+        response: result,
+      });
       return NextResponse.json(result, { status: result.statusCode || 400 });
     }
+
+    console.log("[CRA Lead Successfully Pushed to AVMLabs B2C API]", {
+      fullName: fullName.trim(),
+      mobile: cleanMobile,
+      email: email || null,
+      pincode: cleanPincode,
+      traceId: result.traceId,
+      timestamp: result.timestamp,
+      apiMessage: result.message,
+    });
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {
